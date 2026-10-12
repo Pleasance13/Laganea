@@ -150,15 +150,13 @@ import Game from './Game.jsx';
             objects: ['scissors', 'backpack', 'lantern', 'camera', 'clock', 'telescope'],
             popculture: ['superhero', 'alien', 'pirate', 'wizard', 'dinosaur', 'dragon']
           };
-          const pool = wordLists[category] || wordLists.general;
-          const secretWord = pool[Math.floor(Math.random() * pool.length)];
           const { get } = await import('firebase/database');
           const snap = await get(ref(db, `rooms/${roomCode}/players`));
           const playerIds = snap.exists() ? Object.keys(snap.val()) : [];
           const scores = Object.fromEntries(playerIds.map(id => [id, 0]));
           await update(ref(db, `rooms/${roomCode}`), {
-            gameState: 'playing', round: 1, turnIndex: 0, secretWord,
-            deadline: Date.now() + drawingTime * 1000, scores
+            gameState: 'playing', round: 1, turnIndex: 0, prompt: null,
+            deadline: Date.now() + 30000, scores, guesses: null, correctGuessers: null, drawingImage: null
           });
           setGameState('playing');
           setSyncStatus('✓ Game started');
