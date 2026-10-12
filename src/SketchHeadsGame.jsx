@@ -1079,6 +1079,12 @@ Respond with ONLY the JSON array, nothing else.`
       ctx.stroke();
     }
     setLastDrawPoint({ x, y });
+    if (multiplayer && database && Date.now() - lastLiveSyncRef.current > 180) {
+      lastLiveSyncRef.current = Date.now();
+      const image = canvas.toDataURL('image/png');
+      remoteImageRef.current = image;
+      import('firebase/database').then(({ ref, update }) => update(ref(database, 'rooms/' + roomCode), { drawingImage: image, drawingVersion: Date.now() })).catch(error => console.error('Drawing sync failed:', error));
+    }
   };
 
   const stopDrawing = async () => {
