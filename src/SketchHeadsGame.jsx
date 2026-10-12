@@ -385,7 +385,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
         const db=getDatabase(app);if(!active)return;setDatabase(db);setUid(auth.currentUser.uid);
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
-          setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
+          setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
           if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
