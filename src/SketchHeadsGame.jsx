@@ -1471,7 +1471,7 @@ Respond with ONLY the JSON array, nothing else.`
           <div className="col-span-2 flex flex-col h-full">
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-lg p-4 flex-1 flex flex-col`}>
               {!currentPrompt ? (
-                {multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid ? (
+                multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid ? (
                   <div className={`mb-4 p-8 text-center ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-gray-700'} rounded-lg`}>
                     <p className="text-xl font-bold mb-2">{players[currentDrawer] || 'The drawer'} is choosing a prompt…</p>
                     <p className="text-sm opacity-75">The word stays secret until the round ends.</p>
@@ -1512,7 +1512,7 @@ Respond with ONLY the JSON array, nothing else.`
                       </button>
                     ))}
                   </div>
-                  <button onClick={generatePrompts} disabled={generatingPrompts}
+                  <button onClick={generatePrompts} disabled={generatingPrompts || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid)}
                     className={`w-full py-2 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${generatingPrompts ? 'bg-gray-300 text-gray-500 cursor-wait' : darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
                     {generatingPrompts ? (
                       <div className="flex items-center gap-2">
@@ -1525,7 +1525,7 @@ Respond with ONLY the JSON array, nothing else.`
                       </div>
                     ) : (<><RefreshCw size={16} /> Get new prompts</>)}
                   </button>
-                </div>}
+                </div>)
               ) : (
                 <div>
                   <div className={`mb-4 p-4 ${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} rounded-lg flex-shrink-0`}>
@@ -1721,11 +1721,11 @@ Respond with ONLY the JSON array, nothing else.`
                 ))}
               </div>
               <div className="flex gap-2 flex-shrink-0">
-                <input type="text" value={guess} onChange={(e) => setGuess(e.target.value)}
+                <input type="text" value={guess} onChange={(e) => setGuess(e.target.value)} disabled={multiplayer && (Object.keys(room?.players || {})[currentDrawer] === uid || Boolean(room?.correctGuessers?.[uid]))}
                   onKeyPress={(e) => e.key === 'Enter' && submitGuess()}
                   placeholder="Type your guess..."
                   className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-400 focus:outline-none" />
-                <button onClick={submitGuess} className="px-4 py-2 bg-indigo-500 text-white rounded-lg font-semibold hover:bg-indigo-600 transition-colors">Send</button>
+                <button onClick={submitGuess} disabled={multiplayer && (Object.keys(room?.players || {})[currentDrawer] === uid || Boolean(room?.correctGuessers?.[uid]))} className="px-4 py-2 bg-indigo-500 text-white rounded-lg font-semibold hover:bg-indigo-600 transition-colors disabled:opacity-40">Send</button>
               </div>
             </div>
           </div>
