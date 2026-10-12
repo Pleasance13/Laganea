@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import Game from './Game.jsx';
 
     // Firebase config
     const firebaseConfig = {
@@ -133,6 +134,36 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
         } catch (e) {
           setSyncStatus('✗ Error: ' + e.message);
           console.error('Error joining room:', e);
+        }
+      };
+
+      const startGame = async () => {
+        if (!isHost || players.length < 2 || !roomCode) return;
+        try {
+          await initFirebase();
+          const { ref, update } = await import('firebase/database');
+          const wordLists = {
+            general: ['rainbow', 'rocket', 'castle', 'guitar', 'snowman', 'umbrella', 'bicycle', 'robot'],
+            animals: ['elephant', 'penguin', 'giraffe', 'octopus', 'butterfly', 'turtle'],
+            food: ['pizza', 'hamburger', 'watermelon', 'taco', 'ice cream', 'pancakes'],
+            places: ['beach', 'school', 'airport', 'library', 'mountain', 'museum'],
+            objects: ['scissors', 'backpack', 'lantern', 'camera', 'clock', 'telescope'],
+            popculture: ['superhero', 'alien', 'pirate', 'wizard', 'dinosaur', 'dragon']
+          };
+          const pool = wordLists[category] || wordLists.general;
+          const secretWord = pool[Math.floor(Math.random() * pool.length)];
+          const { get } = await import('firebase/database');
+          const snap = await get(ref(db, `rooms/${roomCode}/players`));
+          const playerIds = snap.exists() ? Object.keys(snap.val()) : [];
+          const scores = Object.fromEntries(playerIds.map(id => [id, 0]));
+          await update(ref(db, `rooms/${roomCode}`), {
+            gameState: 'playing', round: 1, turnIndex: 0, secretWord,
+            deadline: Date.now() + drawingTime * 1000, scores
+          });
+          setGameState('playing');
+          setSyncStatus('✓ Game started');
+        } catch (e) {
+          setSyncStatus('✗ Could not start game: ' + e.message);
         }
       };
 
@@ -296,7 +327,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
                 </div>
               )}
 
-              <button onClick={() => setScreen('playing')} disabled={players.length < 2 || !isHost}
+              <button onClick={startGame} disabled={players.length < 2 || !isHost}
                 className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-bold hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                 {isHost ? 'Start Game' : 'Waiting for host...'}
               </button>
