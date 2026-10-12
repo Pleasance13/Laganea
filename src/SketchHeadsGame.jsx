@@ -1019,8 +1019,14 @@ Respond with ONLY the JSON array, nothing else.`
     setLastDrawPoint({ x, y });
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = async () => {
     setIsDrawing(false);
+    if (multiplayer && database && canvasRef.current && Object.keys(room?.players || {})[currentDrawer] === uid) {
+      const image = canvasRef.current.toDataURL('image/png');
+      const { ref, update } = await import('firebase/database');
+      await update(ref(database, `rooms/${roomCode}`), { drawingImage: image });
+      remoteImageRef.current = image;
+    }
     setLastDrawPoint(null);
     setSmoothPoints([]);
   };
@@ -1488,7 +1494,7 @@ Respond with ONLY the JSON array, nothing else.`
                   </div>
                   <div className="grid grid-cols-3 gap-3 mb-3">
                     {(promptOptions.length > 0 ? promptOptions : [{prompt:'',difficulty:'easy'},{prompt:'',difficulty:'medium'},{prompt:'',difficulty:'hard'}]).map((opt, i) => (
-                      <button key={i} onClick={() => !generatingPrompts && opt.prompt && selectPrompt(opt)} disabled={generatingPrompts || !opt.prompt}
+                      <button key={i} onClick={() => !generatingPrompts && opt.prompt && selectPrompt(opt)} disabled={generatingPrompts || !opt.prompt || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid)}
                         className={`p-4 rounded-lg border-2 transition-all ${generatingPrompts || !opt.prompt ? 'bg-gray-100 border-gray-200 cursor-wait' :
                           opt.difficulty === 'easy' ? 'bg-green-50 border-green-200 hover:border-indigo-500' :
                           opt.difficulty === 'medium' ? 'bg-yellow-50 border-yellow-200 hover:border-indigo-500' :
