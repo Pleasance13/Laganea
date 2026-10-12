@@ -2,6 +2,10 @@
 
 Laganea is a browser-based multiplayer drawing party game. This restoration is in progress.
 
+## Quick testing
+
+See [docs/TESTING.md](docs/TESTING.md) for the fastest local setup and two-browser lobby test.
+
 ## Local development
 
 Requirements: Node.js 20 or newer.
