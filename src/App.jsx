@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import Game from './Game.jsx';
+import SketchHeadsGame from './SketchHeadsGame.jsx';
 
     // Firebase config
     const firebaseConfig = {
@@ -265,7 +265,7 @@ import Game from './Game.jsx';
 
       // Render the actual game once Firebase reports that the host has started it.
       if (screen === 'setup' && gameState !== 'setup') {
-        return <Game roomCode={roomCode} playerName={playerName} isHost={isHost} darkMode={darkMode} onLeave={leaveRoom} />;
+        return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onLeave={leaveRoom} />;
       }
 
       // Setup screen
