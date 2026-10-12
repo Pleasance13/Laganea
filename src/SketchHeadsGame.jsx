@@ -401,7 +401,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
   },[multiplayer,roomCode,isHost]);
   useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
   useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);endRoundKeyRef.current=null;}},[multiplayer,room?.round,room?.turnIndex]);
-  useEffect(()=>{if(!multiplayer||!canvasRef.current)return;if(room?.drawingImage==null){if(remoteImageRef.current!==null){const c=canvasRef.current;c.getContext('2d').clearRect(0,0,c.width,c.height);remoteImageRef.current=null;}return;}if(Object.keys(room.players||{})[room.turnIndex||0]===uid||room.drawingImage===remoteImageRef.current)return;const imageData=room.drawingImage;const img=new Image();img.onload=()=>{if(room?.drawingImage!==imageData)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);remoteImageRef.current=imageData;};img.src=imageData;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
+  useEffect(()=>{if(!multiplayer||!canvasRef.current)return;if(room?.drawingImage==null){if(remoteImageRef.current!==null){const c=canvasRef.current;c.getContext('2d').clearRect(0,0,c.width,c.height);remoteImageRef.current=null;}return;}if(Object.keys(room.players||{})[room.turnIndex||0]===uid||room.drawingImage===remoteImageRef.current)return;const imageData=room.drawingImage;remoteImageRef.current=imageData;const img=new Image();img.onload=()=>{if(remoteImageRef.current!==imageData)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);};img.src=imageData;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
 
   useEffect(() => {
     if (gameState !== 'playing') return;
@@ -1104,10 +1104,10 @@ Respond with ONLY the JSON array, nothing else.`
     if (e.buttons === 1 && gameState === 'playing') {
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
+      const scaleX = canvas.width / canvas.clientWidth;
+      const scaleY = canvas.height / canvas.clientHeight;
+      const x = (e.clientX - rect.left - canvas.clientLeft) * scaleX;
+      const y = (e.clientY - rect.top - canvas.clientTop) * scaleY;
       const ctx = canvas.getContext('2d');
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -1188,7 +1188,7 @@ Respond with ONLY the JSON array, nothing else.`
   if (gameState === 'setup') {
     return (
       <>
-      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed' }}>
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed' }} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed' }}>
         <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
           <div className="mb-6 relative">
             <div className="absolute top-0 right-0 flex gap-2">
@@ -1415,7 +1415,7 @@ Respond with ONLY the JSON array, nothing else.`
   if (gameState === 'gameEnd') {
     const sortedScores = Object.entries(scores).sort((a, b) => b[1] - a[1]);
     return (
-      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`}>
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed' }}>
         <div className={`max-w-4xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Game Complete!</h1>
