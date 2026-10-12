@@ -1645,7 +1645,7 @@ Respond with ONLY the JSON array, nothing else.`
               )}
 
               {/* ── Drawing Tools ── */}
-              <div className={`flex gap-2 mb-4 flex-wrap items-center flex-shrink-0 ${!currentPrompt ? 'pointer-events-none opacity-30' : ''}`}>
+              {(!multiplayer || Object.keys(room?.players || {})[currentDrawer] === uid) && <div className={`flex gap-2 mb-4 flex-wrap items-center flex-shrink-0 ${!currentPrompt ? 'pointer-events-none opacity-30' : ''}`}>
                 <button onClick={() => { setTool('pen'); setIsPickingColor(false); setShowColorPicker(false); }}
                   className={`p-2 rounded transition-colors ${tool === 'pen' ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-700'}`} title="Pen">
                   <Pencil size={20} />
@@ -1731,7 +1731,7 @@ Respond with ONLY the JSON array, nothing else.`
                   onChange={(e) => setBrushSize(parseInt(e.target.value))}
                   className="flex-1 min-w-[100px]" />
                 <span className="text-sm text-gray-600 font-medium min-w-[60px]">Size: {brushSize}</span>
-              </div>
+              </div>}
 
               <div className="overflow-auto relative flex-1 flex items-center justify-center">
                 {/* Clear Canvas Dialog */}
@@ -1753,7 +1753,7 @@ Respond with ONLY the JSON array, nothing else.`
                   ref={canvasRef}
                   width={800}
                   height={600}
-                  className={`border-4 ${darkMode ? 'border-gray-600' : 'border-indigo-200'} bg-white rounded-lg ${(isPickingColor || tool === 'fill') ? 'cursor-crosshair' : 'canvas-cursor'} ${!currentPrompt ? 'pointer-events-none opacity-30' : ''}`}
+                  className={`border-4 ${darkMode ? 'border-gray-600' : 'border-indigo-200'} bg-white rounded-lg ${(isPickingColor || tool === 'fill') ? 'cursor-crosshair' : 'canvas-cursor'} ${!currentPrompt || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid) ? 'pointer-events-none opacity-30' : ''}`}
                   style={{ maxWidth: '100%', height: 'auto', backgroundColor: '#ffffff' }}
                   onMouseDown={startDrawing}
                   onMouseMove={(e) => {
