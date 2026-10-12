@@ -311,6 +311,8 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
   const [database, setDatabase] = useState(null);
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
   const remoteImageRef = useRef(null);
+  const endRoundKeyRef = useRef(null);
+  const lastLiveSyncRef = useRef(0);
   const roomTurnRef = useRef(null);
   const [gameState, setGameState] = useState('setup');
   const [players, setPlayers] = useState([]);
@@ -398,8 +400,8 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
     return()=>{active=false;if(unsubscribe)unsubscribe();};
   },[multiplayer,roomCode]);
   useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
-  useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;}},[multiplayer,room?.round,room?.turnIndex]);
-  useEffect(()=>{if(!multiplayer||!room?.drawingImage||!canvasRef.current||room.drawingImage===remoteImageRef.current)return;if(Object.keys(room.players||{})[room.turnIndex||0]===uid)return;const img=new Image();img.onload=()=>{const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);remoteImageRef.current=room.drawingImage;};img.src=room.drawingImage;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
+  useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);endRoundKeyRef.current=null;}},[multiplayer,room?.round,room?.turnIndex]);
+  useEffect(()=>{if(!multiplayer||!canvasRef.current)return;if(room?.drawingImage==null){if(remoteImageRef.current!==null){const c=canvasRef.current;c.getContext('2d').clearRect(0,0,c.width,c.height);remoteImageRef.current=null;}return;}if(Object.keys(room.players||{})[room.turnIndex||0]===uid||room.drawingImage===remoteImageRef.current)return;const imageData=room.drawingImage;const img=new Image();img.onload=()=>{if(room?.drawingImage!==imageData)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);remoteImageRef.current=imageData;};img.src=imageData;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
 
   useEffect(() => {
     if (gameState !== 'playing') return;
