@@ -736,6 +736,12 @@ Respond with ONLY the JSON array, nothing else.`
     return shuffled.slice(0, 3);
   };
 
+  const saveMultiplayerSetting = async (key, value) => {
+    if (!multiplayer || !isHost || !database) return;
+    const { ref, update } = await import('firebase/database');
+    await update(ref(database, 'rooms/' + roomCode), { [key]: value });
+  };
+
   const startGame = async () => {
     if (multiplayer) {
       if (!isHost || !database || players.length < 2) return;
@@ -1186,7 +1192,7 @@ Respond with ONLY the JSON array, nothing else.`
               `}</style>
               
               {categories.map(cat => (
-                <button key={cat.value} onClick={() => setCategory(cat.value)}
+                <button key={cat.value} disabled={multiplayer && !isHost} onClick={() => { setCategory(cat.value); saveMultiplayerSetting("category", cat.value); }}
                   className={`p-4 rounded-lg border-2 transition-all ${category === cat.value ? 'border-indigo-500 bg-indigo-50 shadow-md' : `${darkMode ? 'border-gray-600 bg-gray-700 hover:border-indigo-400' : 'border-gray-200 bg-white hover:border-indigo-300'}`}`}>
                   <div className={`text-3xl mb-1 ${category === cat.value ? 'icon-wobble' : ''}`}>{cat.emoji}</div>
                   <div className={`font-semibold ${darkMode && category !== cat.value ? 'text-gray-200' : 'text-gray-700'}`}>{cat.label}</div>
@@ -1253,7 +1259,7 @@ Respond with ONLY the JSON array, nothing else.`
               <div>
                 <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Rounds</label>
                 <input type="number" min="1" max="5" value={maxRounds}
-                  onChange={(e) => setMaxRounds(parseInt(e.target.value))}
+                  disabled={multiplayer && !isHost} onChange={(e) => { const v=parseInt(e.target.value); setMaxRounds(v); saveMultiplayerSetting("maxRounds", v); }}
                   className={`w-full px-4 py-2 border-2 rounded-lg focus:border-indigo-400 focus:outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'border-gray-200 bg-white'}`} />
                 <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   {maxRounds * players.length} total drawings · ~{Math.floor(maxRounds * players.length * (drawingTime + 30) / 60)} min
@@ -1266,7 +1272,7 @@ Respond with ONLY the JSON array, nothing else.`
                   Drawing Time <span className="font-bold text-indigo-500">{drawingTime}s</span>
                 </label>
                 <input type="range" min="30" max="120" step="15" value={drawingTime}
-                  onChange={(e) => setDrawingTime(parseInt(e.target.value))}
+                  disabled={multiplayer && !isHost} onChange={(e) => { const v=parseInt(e.target.value); setDrawingTime(v); saveMultiplayerSetting("drawingTime", v); }}
                   className="w-full" />
                 <div className={`flex justify-between text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   <span>30s</span><span>45s</span><span>1m</span><span>1:15</span><span>1:30</span><span>1:45</span><span>2m</span>
@@ -1283,7 +1289,7 @@ Respond with ONLY the JSON array, nothing else.`
                     { label: 'Some', active: hintsEnabled && hintFraction === 0.5,   onClick: () => { setHintsEnabled(true); setHintFraction(0.5);  } },
                     { label: 'Lots', active: hintsEnabled && hintFraction === 0.75,  onClick: () => { setHintsEnabled(true); setHintFraction(0.75); } },
                   ].map(({ label, active, onClick }) => (
-                    <button key={label} onClick={onClick}
+                    <button key={label} disabled={multiplayer && !isHost} onClick={() => { onClick(); saveMultiplayerSetting("hintsEnabled", label !== "None"); saveMultiplayerSetting("hintFraction", label === "Few" ? 0.25 : label === "Lots" ? 0.75 : 0.5); }}
                       className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
                         active
                           ? 'bg-indigo-500 border-indigo-500 text-white'
