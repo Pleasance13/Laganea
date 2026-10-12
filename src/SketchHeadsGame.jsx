@@ -736,7 +736,21 @@ Respond with ONLY the JSON array, nothing else.`
     setUsedPrompts(prev => new Set([...prev, promptObj.prompt.toLowerCase()]));
   };
 
-  const skipDrawer = () => {
+  const skipDrawer = async () => {
+    if (multiplayer) {
+      const ids = Object.keys(room?.players || {});
+      if (ids[currentDrawer] !== uid || !database) return;
+      const nextRound = round + 1;
+      const { ref, update } = await import('firebase/database');
+      if (nextRound > maxRounds * Math.max(1, players.length)) {
+        await update(ref(database, `rooms/${roomCode}`), { gameState: 'finished', deadline: null });
+      } else {
+        await update(ref(database, `rooms/${roomCode}`), { gameState: 'playing', round: nextRound, turnIndex: (currentDrawer + 1) % players.length, prompt: null, deadline: Date.now() + 30000, guesses: null, correctGuessers: null, drawingImage: null });
+      }
+      setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]);
+      clearCanvasInternal();
+      return;
+    }
     setGameState('roundEnd');
     setTimeout(() => {
       if (round < maxRounds * players.length) {
