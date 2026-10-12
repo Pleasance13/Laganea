@@ -521,9 +521,11 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
   };
 
   const generatePrompts = async () => {
+    const canUseCustomPrompts = !multiplayer || isHost;
+    const customPackEnabled = useCustomPrompts && canUseCustomPrompts;
     setGeneratingPrompts(true);
     const promptsByDifficulty = { easy: [], medium: [], hard: [] };
-    if (useCustomPrompts && Object.keys(customPromptPacks).length > 0) {
+    if (customPackEnabled && Object.keys(customPromptPacks).length > 0) {
       try {
         ['easy', 'medium', 'hard'].forEach(diff => {
           const customPromptsForDiff = getAvailableCustomPrompts(category, diff)
@@ -711,7 +713,7 @@ Respond with ONLY the JSON array, nothing else.`
     const easyFallbacks = categoryFallbacks.filter(p => p.difficulty === 'easy' && !usedPrompts.has(p.prompt.toLowerCase()));
     const mediumFallbacks = categoryFallbacks.filter(p => p.difficulty === 'medium' && !usedPrompts.has(p.prompt.toLowerCase()));
     const hardFallbacks = categoryFallbacks.filter(p => p.difficulty === 'hard' && !usedPrompts.has(p.prompt.toLowerCase()));
-    if (useCustomPrompts) {
+    if (customPackEnabled) {
       easyFallbacks.push(...getAvailableCustomPrompts(category, 'easy').filter(p => !usedPrompts.has(p.prompt.toLowerCase())));
       mediumFallbacks.push(...getAvailableCustomPrompts(category, 'medium').filter(p => !usedPrompts.has(p.prompt.toLowerCase())));
       hardFallbacks.push(...getAvailableCustomPrompts(category, 'hard').filter(p => !usedPrompts.has(p.prompt.toLowerCase())));
@@ -842,7 +844,10 @@ Respond with ONLY the JSON array, nothing else.`
   };
 
   const endRound = async () => {
-    if(multiplayer){const ids=Object.keys(room?.players||{});if(!database||ids[currentDrawer]!==uid)return;if(currentPrompt)setDrawings(prev=>[...prev,{prompt:currentPrompt.prompt,difficulty:currentPrompt.difficulty,drawer:players[currentDrawer],image:getDrawing(),round}]);const {ref,update}=await import('firebase/database');if(currentPrompt&&correctGuessers.length){const bonus=({easy:100,medium:200,hard:300})[currentPrompt.difficulty]||150;await update(ref(database,`rooms/${roomCode}/scores`),{[ids[currentDrawer]]:(room?.scores?.[ids[currentDrawer]]||0)+bonus});}const next=round+1;if(next>maxRounds*Math.max(1,players.length))await update(ref(database,`rooms/${roomCode}`),{gameState:'finished',deadline:null});else await update(ref(database,`rooms/${roomCode}`),{gameState:'playing',round:next,turnIndex:(currentDrawer+1)%players.length,prompt:null,deadline:Date.now()+30000,guesses:null,correctGuessers:null,drawingImage:null});clearCanvasInternal();setCurrentPrompt(null);setPromptOptions([]);setGuesses([]);setCorrectGuessers([]);setPromptSelectionTime(30);setRevealedLetters([]);return;}
+    if(multiplayer){
+      const roundKey = `${room?.round || round}:${room?.turnIndex ?? currentDrawer}`;
+      if (endRoundKeyRef.current === roundKey) return;
+      endRoundKeyRef.current = roundKey;const ids=Object.keys(room?.players||{});if(!database||ids[currentDrawer]!==uid)return;if(currentPrompt)setDrawings(prev=>[...prev,{prompt:currentPrompt.prompt,difficulty:currentPrompt.difficulty,drawer:players[currentDrawer],image:getDrawing(),round}]);const {ref,update}=await import('firebase/database');if(currentPrompt&&correctGuessers.length){const bonus=({easy:100,medium:200,hard:300})[currentPrompt.difficulty]||150;await update(ref(database,`rooms/${roomCode}/scores`),{[ids[currentDrawer]]:(room?.scores?.[ids[currentDrawer]]||0)+bonus});}const next=round+1;if(next>maxRounds*Math.max(1,players.length))await update(ref(database,`rooms/${roomCode}`),{gameState:'finished',deadline:null});else await update(ref(database,`rooms/${roomCode}`),{gameState:'playing',round:next,turnIndex:(currentDrawer+1)%players.length,prompt:null,deadline:Date.now()+30000,guesses:null,correctGuessers:null,drawingImage:null});clearCanvasInternal();setCurrentPrompt(null);setPromptOptions([]);setGuesses([]);setCorrectGuessers([]);setPromptSelectionTime(30);setRevealedLetters([]);return;}
     if (currentPrompt) {
       const drawing = getDrawing();
       setDrawings([...drawings, {
@@ -1075,9 +1080,9 @@ Respond with ONLY the JSON array, nothing else.`
     setIsDrawing(false);
     if (multiplayer && database && canvasRef.current && Object.keys(room?.players || {})[currentDrawer] === uid) {
       const image = canvasRef.current.toDataURL('image/png');
-      const { ref, update } = await import('firebase/database');
-      await update(ref(database, `rooms/${roomCode}`), { drawingImage: image });
       remoteImageRef.current = image;
+      const { ref, update } = await import('firebase/database');
+      await update(ref(database, `rooms/${roomCode}`), { drawingImage: image, drawingVersion: Date.now() });
     }
     setLastDrawPoint(null);
     setSmoothPoints([]);
@@ -1146,8 +1151,14 @@ Respond with ONLY the JSON array, nothing else.`
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  const confirmClearCanvas = () => {
+  const confirmClearCanvas = async () => {
     clearCanvasInternal();
+    if (multiplayer && database && Object.keys(room?.players || {})[currentDrawer] === uid) {
+      const { ref, update } = await import('firebase/database');
+      const blank = canvasRef.current?.toDataURL('image/png') || null;
+      await update(ref(database, 'rooms/' + roomCode), { drawingImage: blank, drawingVersion: Date.now() });
+      remoteImageRef.current = blank;
+    }
     setShowClearDialog(false);
   };
 
