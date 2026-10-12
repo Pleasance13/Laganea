@@ -1188,7 +1188,7 @@ Respond with ONLY the JSON array, nothing else.`
   if (gameState === 'setup') {
     return (
       <>
-      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`}>
+      <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed' }}>
         <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
           <div className="mb-6 relative">
             <div className="absolute top-0 right-0 flex gap-2">
@@ -1375,7 +1375,7 @@ Respond with ONLY the JSON array, nothing else.`
                     <p className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Custom Prompt Pack</p>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Upload a .txt file with your own prompts</p>
                   </div>
-                  <button onClick={() => setUseCustomPrompts(!useCustomPrompts)}
+                  <button onClick={() => { const enabled = !useCustomPrompts; setUseCustomPrompts(enabled); if (multiplayer && database && isHost) import('firebase/database').then(({ ref, update }) => update(ref(database, 'rooms/' + roomCode), { useCustomPrompts: enabled })); }}
                     className={`relative w-12 h-6 rounded-full transition-colors ${useCustomPrompts ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${useCustomPrompts ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
@@ -1493,7 +1493,7 @@ Respond with ONLY the JSON array, nothing else.`
   const drawerName = players[currentDrawer];
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-4`}>
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-4`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed' }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-lg p-4 mb-4 flex justify-between items-center`}>
