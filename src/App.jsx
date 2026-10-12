@@ -169,6 +169,18 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
         return () => { active = false; if (unsubscribe) unsubscribe(); };
       }, [screen, roomCode]);
 
+      const saveRoomSetting = async (key, value) => {
+        if (!isHost || !roomCode) return;
+        try {
+          await initFirebase();
+          const { ref, update } = await import('firebase/database');
+          await update(ref(db, `rooms/${roomCode}`), { [key]: value });
+          setSyncStatus('✓ Room settings saved');
+        } catch (e) {
+          setSyncStatus('✗ Could not save settings: ' + e.message);
+        }
+      };
+
       // Login screen
       if (screen === 'login') {
         return (
@@ -263,7 +275,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
                     <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Category</label>
                     <div className="grid grid-cols-3 gap-2">
                       {categories.map(cat => (
-                        <button key={cat.value} onClick={() => setCategory(cat.value)}
+                        <button key={cat.value} onClick={() => { setCategory(cat.value); saveRoomSetting('category', cat.value); }}
                           className={`p-2 rounded-lg border-2 text-center transition-all ${category === cat.value ? 'border-indigo-500 bg-indigo-50' : `${darkMode ? 'border-gray-600 bg-gray-700' : 'border-gray-200'}`}`}>
                           <div className="text-2xl">{cat.emoji}</div>
                           <div className={`text-xs font-semibold ${darkMode && category !== cat.value ? 'text-gray-300' : 'text-gray-700'}`}>{cat.label}</div>
@@ -274,12 +286,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 
                   <div>
                     <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Rounds: {maxRounds}</label>
-                    <input type="range" min="1" max="5" value={maxRounds} onChange={(e) => setMaxRounds(parseInt(e.target.value))} className="w-full" />
+                    <input type="range" min="1" max="5" value={maxRounds} onChange={(e) => { const value = parseInt(e.target.value, 10); setMaxRounds(value); saveRoomSetting('maxRounds', value); }} className="w-full" />
                   </div>
 
                   <div>
                     <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Drawing Time: {drawingTime}s</label>
-                    <input type="range" min="30" max="120" step="15" value={drawingTime} onChange={(e) => setDrawingTime(parseInt(e.target.value))} className="w-full" />
+                    <input type="range" min="30" max="120" step="15" value={drawingTime} onChange={(e) => { const value = parseInt(e.target.value, 10); setDrawingTime(value); saveRoomSetting('drawingTime', value); }} className="w-full" />
                   </div>
                 </div>
               )}
