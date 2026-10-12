@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import SketchHeadsGame from './SketchHeadsGame.jsx';
+import LaganeaLogo from './LaganeaLogo.jsx';
 
     // Firebase config
     const firebaseConfig = {
@@ -50,6 +51,9 @@ import SketchHeadsGame from './SketchHeadsGame.jsx';
       const [category, setCategory] = useState('general');
       const [gameState, setGameState] = useState('setup');
       const [syncStatus, setSyncStatus] = useState('');
+      const [showLobbySettings, setShowLobbySettings] = useState(false);
+      const [hintsEnabled, setHintsEnabled] = useState(true);
+      const [hintFraction, setHintFraction] = useState(0.5);
 
       const categories = [
         { value: 'general', label: 'General', emoji: '🎲' },
@@ -80,11 +84,11 @@ import SketchHeadsGame from './SketchHeadsGame.jsx';
             host: playerId,
             players: { [playerId]: { name: playerName.trim(), joinedAt: Date.now() } },
             gameState: 'setup',
-            maxRounds: 3,
-            drawingTime: 90,
-            hintsEnabled: true,
-            hintFraction: 0.5,
-            category: 'general',
+            maxRounds,
+            drawingTime,
+            hintsEnabled,
+            hintFraction,
+            category,
           });
           setSyncStatus('✓ Room created');
           setScreen('setup');
@@ -192,6 +196,8 @@ import SketchHeadsGame from './SketchHeadsGame.jsx';
             setMaxRounds(data.maxRounds || 3);
             setDrawingTime(data.drawingTime || 90);
             setCategory(data.category || 'general');
+            setHintsEnabled(data.hintsEnabled !== false);
+            setHintFraction(Number(data.hintFraction) || 0.5);
             if (data.gameState && data.gameState !== 'setup') setGameState(data.gameState);
           }, (error) => setSyncStatus('✗ Room sync error: ' + error.message));
         }).catch((e) => setSyncStatus('✗ Room sync error: ' + e.message));
@@ -216,7 +222,7 @@ import SketchHeadsGame from './SketchHeadsGame.jsx';
           <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8 flex items-center justify-center`}>
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-12 w-full max-w-md`}>
               <div className="flex justify-between items-center mb-8">
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">LAGANEA</h1>
+                <div className="flex-1 flex justify-center"><LaganeaLogo width={245} /></div>
                 <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`}>
                   {darkMode ? '☀️' : '🌙'}
                 </button>
@@ -276,10 +282,11 @@ import SketchHeadsGame from './SketchHeadsGame.jsx';
             <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">LAGANEA</h1>
+                  <LaganeaLogo width={210} />
                   <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Room: <span className="font-mono font-bold">{roomCode}</span></p>
                 </div>
                 <div className="flex gap-2">
+                  <button onClick={() => setShowLobbySettings(true)} className="px-3 py-2 rounded-lg bg-indigo-100 hover:bg-indigo-200" title="Game settings">⚙️</button>
                   <button onClick={() => navigator.clipboard.writeText(roomCode)} 
                     className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`} title="Copy room code">
                     📋
@@ -345,6 +352,22 @@ import SketchHeadsGame from './SketchHeadsGame.jsx';
           </div>
         );
       }
+
+
+              {showLobbySettings && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowLobbySettings(false)}>
+                  <div className={`w-full max-w-md rounded-2xl shadow-2xl ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-between items-center p-6 border-b"><h2 className="text-2xl font-bold">Game Settings</h2><button onClick={() => setShowLobbySettings(false)}>✕</button></div>
+                    <div className="p-6 space-y-6">
+                      <div><label className="block font-semibold mb-2">Rounds: {maxRounds}</label><input type="range" min="1" max="5" value={maxRounds} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setMaxRounds(v); saveRoomSetting('maxRounds',v); }} className="w-full" /></div>
+                      <div><label className="block font-semibold mb-2">Drawing time: {drawingTime}s</label><input type="range" min="30" max="120" step="15" value={drawingTime} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setDrawingTime(v); saveRoomSetting('drawingTime',v); }} className="w-full" /></div>
+                      <div><label className="block font-semibold mb-2">Hints</label><div className="flex gap-2">{[{label:'None',value:0},{label:'Few',value:0.25},{label:'Some',value:0.5},{label:'Lots',value:0.75}].map(opt => <button key={opt.label} disabled={!isHost} onClick={() => { const enabled=opt.value>0; setHintsEnabled(enabled); setHintFraction(opt.value||0.5); saveRoomSetting('hintsEnabled',enabled); saveRoomSetting('hintFraction',opt.value||0.5); }} className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold ${(opt.value===0?!hintsEnabled:(hintsEnabled&&hintFraction===opt.value))?'bg-indigo-500 border-indigo-500 text-white':(darkMode?'border-gray-600':'border-gray-200')}`}>{opt.label}</button>)}</div></div>
+                      <p className="text-xs opacity-70">{isHost?'Changes are shared with everyone in the room.':'Only the host can change game settings.'}</p>
+                      <button onClick={() => setShowLobbySettings(false)} className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold">Done</button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
       // Playing screen (placeholder)
       if (screen === 'playing') {
