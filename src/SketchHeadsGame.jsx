@@ -737,6 +737,14 @@ Respond with ONLY the JSON array, nothing else.`
   };
 
   const startGame = async () => {
+    if (multiplayer) {
+      if (!isHost || !database || players.length < 2) return;
+      const ids = Object.keys(room?.players || {});
+      const scoresById = Object.fromEntries(ids.map(id => [id, 0]));
+      const { ref, update } = await import("firebase/database");
+      await update(ref(database, "rooms/" + roomCode), { gameState: "playing", round: 1, turnIndex: 0, prompt: null, deadline: Date.now() + 30000, scores: scoresById, guesses: null, correctGuessers: null, drawingImage: null, category, maxRounds, drawingTime, hintsEnabled, hintFraction });
+      return;
+    }
     if (players.length < 2) { alert('Need at least 2 players!'); return; }
     const initialScores = {};
     players.forEach(p => initialScores[p] = 0);
@@ -1188,7 +1196,7 @@ Respond with ONLY the JSON array, nothing else.`
           </div>
           <div className="mb-6">
             <label className={`block text-lg font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Players</label>
-            <div className="flex gap-2 mb-2">
+            <div className={multiplayer ? "hidden" : "flex gap-2 mb-2"}>
               <input type="text" placeholder="Enter player name" maxLength={12}
                 className={`flex-1 px-4 py-2 border-2 rounded-lg focus:border-indigo-400 focus:outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200 placeholder-gray-400' : 'border-gray-200 bg-white'}`}
                 onKeyPress={(e) => {
@@ -1216,14 +1224,14 @@ Respond with ONLY the JSON array, nothing else.`
               {players.map((p, i) => (
                 <div key={i} className={`${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-100 to-purple-100'} px-4 py-2 rounded-full flex items-center gap-2`}>
                   <span className={`font-medium ${darkMode ? 'text-gray-200' : ''}`}>{p}</span>
-                  <button onClick={() => setPlayers(players.filter((_, idx) => idx !== i))} className="text-red-500 font-bold hover:text-red-700">×</button>
+                  {!multiplayer && <button onClick={() => setPlayers(players.filter((_, idx) => idx !== i))} className="text-red-500 font-bold hover:text-red-700">×</button>}
                 </div>
               ))}
             </div>
           </div>
-          <button onClick={startGame} disabled={players.length < 2}
+          <button onClick={startGame} disabled={players.length < 2 || (multiplayer && !isHost)}
             className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-bold text-xl hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105">
-            Start Game
+            {multiplayer ? (isHost ? "Start Game" : "Waiting for host to start…") : "Start Game"}
           </button>
         </div>
       </div>
