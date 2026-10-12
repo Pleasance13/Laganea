@@ -400,7 +400,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
     return()=>{active=false;if(unsubscribe)unsubscribe();};
   },[multiplayer,roomCode,isHost]);
   useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
-  useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);endRoundKeyRef.current=null;}},[multiplayer,room?.round,room?.turnIndex]);
+  useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);}},[multiplayer,room?.round,room?.turnIndex]);
   useEffect(()=>{if(!multiplayer||!canvasRef.current)return;if(room?.drawingImage==null){if(remoteImageRef.current!==null){const c=canvasRef.current;c.getContext('2d').clearRect(0,0,c.width,c.height);remoteImageRef.current=null;}return;}if(Object.keys(room.players||{})[room.turnIndex||0]===uid||room.drawingImage===remoteImageRef.current)return;const imageData=room.drawingImage;remoteImageRef.current=imageData;const img=new Image();img.onload=()=>{if(remoteImageRef.current!==imageData)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);};img.src=imageData;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
 
   useEffect(() => {
@@ -815,6 +815,7 @@ Respond with ONLY the JSON array, nothing else.`
         setCurrentDrawer((currentDrawer + 1) % players.length);
         setGameState('playing');
         setCurrentPrompt(null);
+        setTool('pen'); setBrushSize(3); setColor('#2D3748'); setCustomColor('#2D3748'); setIsPickingColor(false); setShowColorPicker(false);
         setPromptSelectionTime(30);
         setShowClearDialog(false);
         setShowColorPicker(false);
@@ -878,6 +879,7 @@ Respond with ONLY the JSON array, nothing else.`
         setCurrentDrawer((currentDrawer + 1) % players.length);
         setGameState('playing');
         setCurrentPrompt(null);
+        setTool('pen'); setBrushSize(3); setColor('#2D3748'); setCustomColor('#2D3748'); setIsPickingColor(false); setShowColorPicker(false);
         setPromptSelectionTime(30);
         setShowColorPicker(false);
         generatePrompts();
