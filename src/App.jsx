@@ -271,7 +271,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
 
       // Always use the preserved original JSX game for active multiplayer rooms.
       // The legacy screen === 'playing' branch below is only a placeholder and must not render.
-      if (screen === 'playing' || (screen === 'setup' && gameState !== 'setup')) {
+      if (screen === 'playing' || screen === 'setup') {
         return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onLeave={leaveRoom} />;
       }
 
