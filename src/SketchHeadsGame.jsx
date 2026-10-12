@@ -950,7 +950,7 @@ Respond with ONLY the JSON array, nothing else.`
   };
 
   const startDrawing = (e) => {
-    if (gameState !== 'playing' || !currentPrompt || isPaused) return;
+    if (gameState !== 'playing' || !currentPrompt || isPaused || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid)) return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -986,7 +986,7 @@ Respond with ONLY the JSON array, nothing else.`
   };
 
   const draw = (e) => {
-    if (!isDrawing || gameState !== 'playing' || isPickingColor || isPaused) return;
+    if (!isDrawing || gameState !== 'playing' || isPickingColor || isPaused || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid)) return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -1026,7 +1026,7 @@ Respond with ONLY the JSON array, nothing else.`
   };
 
   const handleMouseEnter = (e) => {
-    if (!currentPrompt || isPaused || isPickingColor || !isDrawing) return;
+    if (!currentPrompt || isPaused || isPickingColor || !isDrawing || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid)) return;
     if (e.buttons === 1 && gameState === 'playing') {
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
@@ -1471,7 +1471,12 @@ Respond with ONLY the JSON array, nothing else.`
           <div className="col-span-2 flex flex-col h-full">
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-lg p-4 flex-1 flex flex-col`}>
               {!currentPrompt ? (
-                <div className={`mb-4 p-6 ${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} rounded-lg flex-shrink-0`}>
+                {multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid ? (
+                  <div className={`mb-4 p-8 text-center ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gradient-to-r from-indigo-50 to-purple-50 text-gray-700'} rounded-lg`}>
+                    <p className="text-xl font-bold mb-2">{players[currentDrawer] || 'The drawer'} is choosing a prompt…</p>
+                    <p className="text-sm opacity-75">The word stays secret until the round ends.</p>
+                  </div>
+                ) : <div className={`mb-4 p-6 ${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} rounded-lg flex-shrink-0`}>
                   <div className="flex justify-between items-center mb-4">
                     <p className={`text-xl font-bold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Choose your prompt:</p>
                     {!generatingPrompts && promptOptions.length > 0 && (
@@ -1520,12 +1525,12 @@ Respond with ONLY the JSON array, nothing else.`
                       </div>
                     ) : (<><RefreshCw size={16} /> Get new prompts</>)}
                   </button>
-                </div>
+                </div>}
               ) : (
                 <div>
                   <div className={`mb-4 p-4 ${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} rounded-lg flex-shrink-0`}>
-                    <p className={`text-center text-xl font-bold ${darkMode ? 'text-gray-200' : 'text-gray-800'} mb-2`}>Draw: {currentPrompt.prompt}</p>
-                    <p className={`text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} capitalize`}>{currentPrompt.difficulty} difficulty</p>
+                    <p className={`text-center text-xl font-bold ${darkMode ? 'text-gray-200' : 'text-gray-800'} mb-2`}>{!multiplayer || Object.keys(room?.players || {})[currentDrawer] === uid ? `Draw: ${currentPrompt.prompt}` : 'Guess the drawing!'}</p>
+                    {(!multiplayer || Object.keys(room?.players || {})[currentDrawer] === uid) && <p className={`text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} capitalize`}>{currentPrompt.difficulty} difficulty</p>}
                   </div>
                   <div className="mb-4 flex justify-center gap-1 flex-wrap flex-shrink-0 min-h-[52px] items-center">
                     {currentPrompt.prompt.split('').map((char, i) => (
