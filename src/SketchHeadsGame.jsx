@@ -388,7 +388,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
         const db=getDatabase(app);if(!active)return;setDatabase(db);setUid(auth.currentUser.uid);
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
-          setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
+          setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
           if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
@@ -398,7 +398,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
       }catch(e){console.error('Multiplayer connection failed:',e);}
     })();
     return()=>{active=false;if(unsubscribe)unsubscribe();};
-  },[multiplayer,roomCode]);
+  },[multiplayer,roomCode,isHost]);
   useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
   useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);endRoundKeyRef.current=null;}},[multiplayer,room?.round,room?.turnIndex]);
   useEffect(()=>{if(!multiplayer||!canvasRef.current)return;if(room?.drawingImage==null){if(remoteImageRef.current!==null){const c=canvasRef.current;c.getContext('2d').clearRect(0,0,c.width,c.height);remoteImageRef.current=null;}return;}if(Object.keys(room.players||{})[room.turnIndex||0]===uid||room.drawingImage===remoteImageRef.current)return;const imageData=room.drawingImage;const img=new Image();img.onload=()=>{if(room?.drawingImage!==imageData)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);remoteImageRef.current=imageData;};img.src=imageData;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
@@ -493,6 +493,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
   };
 
   const handleFileUpload = (e) => {
+    if (multiplayer && !isHost) return;
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -501,6 +502,10 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
       const parsed = parseCustomPromptFile(text);
       setCustomPromptPacks(parsed);
       setCustomPrompts(text);
+      setUseCustomPrompts(true);
+      if (multiplayer && database && isHost) {
+        import('firebase/database').then(({ ref, update }) => update(ref(database, 'rooms/' + roomCode), { customPromptPacks: parsed, useCustomPrompts: true }));
+      }
     };
     reader.readAsText(file);
   };
@@ -1010,10 +1015,10 @@ Respond with ONLY the JSON array, nothing else.`
     if (gameState !== 'playing' || !currentPrompt || isPaused || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid)) return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const scaleX = canvas.width / canvas.clientWidth;
+    const scaleY = canvas.height / canvas.clientHeight;
+    const x = (e.clientX - rect.left - canvas.clientLeft) * scaleX;
+    const y = (e.clientY - rect.top - canvas.clientTop) * scaleY;
     if (isPickingColor) { pickColorFromCanvas(x, y); return; }
 
     if (tool === 'fill') {
@@ -1025,7 +1030,7 @@ Respond with ONLY the JSON array, nothing else.`
     ctx.lineJoin = 'round';
     if (tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = brushSize * 2;
+      ctx.lineWidth = brushSize;
       ctx.fillStyle = 'rgba(0,0,0,1)';
     } else {
       ctx.globalCompositeOperation = 'source-over';
@@ -1046,16 +1051,16 @@ Respond with ONLY the JSON array, nothing else.`
     if (!isDrawing || gameState !== 'playing' || isPickingColor || isPaused || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid)) return;
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    const scaleX = canvas.width / canvas.clientWidth;
+    const scaleY = canvas.height / canvas.clientHeight;
+    const x = (e.clientX - rect.left - canvas.clientLeft) * scaleX;
+    const y = (e.clientY - rect.top - canvas.clientTop) * scaleY;
     const ctx = canvas.getContext('2d');
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     if (tool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = brushSize * 2;
+      ctx.lineWidth = brushSize;
     } else {
       ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = color;
@@ -1102,7 +1107,7 @@ Respond with ONLY the JSON array, nothing else.`
       ctx.lineJoin = 'round';
       if (tool === 'eraser') {
         ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineWidth = brushSize * 2;
+        ctx.lineWidth = brushSize;
       } else {
         ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = color;
@@ -1357,8 +1362,8 @@ Respond with ONLY the JSON array, nothing else.`
                 </button>
               </div>
 
-              {/* Custom Prompt Pack */}
-              <div className={`pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+              {/* Custom Prompt Pack: configured by the host and shared with the room */}
+              {(!multiplayer || isHost) && <div className={`pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <p className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Custom Prompt Pack</p>
@@ -1389,7 +1394,7 @@ Respond with ONLY the JSON array, nothing else.`
                     </details>
                   </div>
                 )}
-              </div>
+              </div>}
 
             </div>
           </div>
@@ -1759,10 +1764,10 @@ Respond with ONLY the JSON array, nothing else.`
                       const rect = canvas.getBoundingClientRect();
                       const scaleX = rect.width / canvas.width;
                       const scaleY = rect.height / canvas.height;
-                      preview.style.left = `${e.clientX - rect.left}px`;
-                      preview.style.top = `${e.clientY - rect.top}px`;
-                      preview.style.width = `${brushSize * (tool === 'eraser' ? 2 : 1) * scaleX}px`;
-                      preview.style.height = `${brushSize * (tool === 'eraser' ? 2 : 1) * scaleY}px`;
+                      preview.style.left = `${canvas.offsetLeft + e.clientX - rect.left}px`;
+                      preview.style.top = `${canvas.offsetTop + e.clientY - rect.top}px`;
+                      preview.style.width = `${brushSize * scaleX}px`;
+                      preview.style.height = `${brushSize * scaleY}px`;
                       preview.style.backgroundColor = tool === 'eraser' ? 'rgba(255,255,255,0.7)' : color + '80';
                       preview.style.display = 'block';
                     }
