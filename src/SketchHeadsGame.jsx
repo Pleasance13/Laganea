@@ -304,7 +304,13 @@ function levenshtein(a, b) {
 
 // ─── Main Game Component ───────────────────────────────────────────────────────
 
-const SketchHeadsGame = () => {
+const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMode = false }) => {
+  const multiplayer = Boolean(roomCode);
+  const [room, setRoom] = useState(null);
+  const [uid, setUid] = useState(null);
+  const [database, setDatabase] = useState(null);
+  const remoteImageRef = useRef(null);
+  const roomTurnRef = useRef(null);
   const [gameState, setGameState] = useState('setup');
   const [players, setPlayers] = useState([]);
   const [currentDrawer, setCurrentDrawer] = useState(0);
@@ -340,7 +346,7 @@ const SketchHeadsGame = () => {
   const [tool, setTool] = useState('pen');
   const [drawings, setDrawings] = useState([]);
   const [isPickingColor, setIsPickingColor] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(initialDarkMode);
   const [lastDrawPoint, setLastDrawPoint] = useState(null);
   const [saveWithTransparency, setSaveWithTransparency] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -367,6 +373,32 @@ const SketchHeadsGame = () => {
     { value: 'objects', label: 'Objects', emoji: '📦' },
     { value: 'popculture', label: 'Pop Culture', emoji: '🎬' }
   ];
+
+  useEffect(() => {
+    if (!multiplayer) return;
+    let active=true, unsubscribe;
+    (async()=>{
+      try {
+        const [{initializeApp,getApps,getApp},{getDatabase,ref,onValue},{getAuth,signInAnonymously}]=await Promise.all([import('firebase/app'),import('firebase/database'),import('firebase/auth')]);
+        const config={apiKey:"AIzaSyAPSE2wneubHrTrCCsDn8ZEHyoszchOia0",authDomain:"laganea-drawing-game.firebaseapp.com",databaseURL:"https://laganea-drawing-game-default-rtdb.firebaseio.com",projectId:"laganea-drawing-game",storageBucket:"laganea-drawing-game.firebasestorage.app",messagingSenderId:"975169860070",appId:"1:975169860070:web:a3df9d3ffb85d4f1faa627"};
+        const app=getApps().length?getApp():initializeApp(config),auth=getAuth(app);if(!auth.currentUser)await signInAnonymously(auth);
+        const db=getDatabase(app);if(!active)return;setDatabase(db);setUid(auth.currentUser.uid);
+        unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
+          if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
+          setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
+          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');
+          if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
+          else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
+          setGuesses(Object.values(data.guesses||{}));setCorrectGuessers(Object.values(data.correctGuessers||{}));
+          setScores(Object.fromEntries(entries.map(([id,p])=>[typeof p==='string'?p:p.name||id,data.scores?.[id]||0])));
+        });
+      }catch(e){console.error('Multiplayer connection failed:',e);}
+    })();
+    return()=>{active=false;if(unsubscribe)unsubscribe();};
+  },[multiplayer,roomCode]);
+  useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
+  useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;}},[multiplayer,room?.round,room?.turnIndex]);
+  useEffect(()=>{if(!multiplayer||!room?.drawingImage||!canvasRef.current||room.drawingImage===remoteImageRef.current)return;if(Object.keys(room.players||{})[room.turnIndex||0]===uid)return;const img=new Image();img.onload=()=>{const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);remoteImageRef.current=room.drawingImage;};img.src=room.drawingImage;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
 
   useEffect(() => {
     if (gameState !== 'playing') return;
@@ -726,7 +758,8 @@ Respond with ONLY the JSON array, nothing else.`
     if (prompts) setPromptOptions(prompts);
   };
 
-  const selectPrompt = (promptObj) => {
+  const selectPrompt = async (promptObj) => {
+    if(multiplayer){if(!database||Object.keys(room?.players||{})[currentDrawer]!==uid)return;const {ref,update}=await import('firebase/database');await update(ref(database,`rooms/${roomCode}`),{prompt:promptObj,deadline:Date.now()+drawingTime*1000,guesses:null,correctGuessers:null,drawingImage:null});}
     setCurrentPrompt(promptObj);
     setTimeLeft(drawingTime);
     setBrushSize(3);
@@ -791,7 +824,8 @@ Respond with ONLY the JSON array, nothing else.`
     return tempCanvas.toDataURL('image/png');
   };
 
-  const endRound = () => {
+  const endRound = async () => {
+    if(multiplayer){const ids=Object.keys(room?.players||{});if(!database||ids[currentDrawer]!==uid)return;if(currentPrompt)setDrawings(prev=>[...prev,{prompt:currentPrompt.prompt,difficulty:currentPrompt.difficulty,drawer:players[currentDrawer],image:getDrawing(),round}]);const {ref,update}=await import('firebase/database');if(currentPrompt&&correctGuessers.length){const bonus=({easy:100,medium:200,hard:300})[currentPrompt.difficulty]||150;await update(ref(database,`rooms/${roomCode}/scores`),{[ids[currentDrawer]]:(room?.scores?.[ids[currentDrawer]]||0)+bonus});}const next=round+1;if(next>maxRounds*Math.max(1,players.length))await update(ref(database,`rooms/${roomCode}`),{gameState:'finished',deadline:null});else await update(ref(database,`rooms/${roomCode}`),{gameState:'playing',round:next,turnIndex:(currentDrawer+1)%players.length,prompt:null,deadline:Date.now()+30000,guesses:null,correctGuessers:null,drawingImage:null});clearCanvasInternal();setCurrentPrompt(null);setPromptOptions([]);setGuesses([]);setCorrectGuessers([]);setPromptSelectionTime(30);setRevealedLetters([]);return;}
     if (currentPrompt) {
       const drawing = getDrawing();
       setDrawings([...drawings, {
@@ -829,8 +863,9 @@ Respond with ONLY the JSON array, nothing else.`
     }, 3000);
   };
 
-  const submitGuess = () => {
-    if (!guess.trim() || !currentPrompt) return;
+  const submitGuess = async () => {
+    if(!guess.trim()||!currentPrompt)return;
+    if(multiplayer){const ids=Object.keys(room?.players||{});if(!database||ids[currentDrawer]===uid||room?.correctGuessers?.[uid]){setGuess('');return;}const text=guess.trim(),clean=text.toLowerCase().trim().replace(/^[^a-z0-9]+|[^a-z0-9]+$/g,''),target=currentPrompt.prompt.toLowerCase().trim(),correct=clean===target,oneOff=!correct&&levenshtein(clean,target)===1;const {ref,push,update}=await import('firebase/database');await update(push(ref(database,`rooms/${roomCode}/guesses`)),{player:playerName,text:correct?'guessed correctly!':text,correct,oneOff,time:drawingTime-timeLeft,uid});if(correct){const prior=room?.correctGuessers||{};await update(ref(database,`rooms/${roomCode}/scores`),{[uid]:(room?.scores?.[uid]||0)+Math.max(100,500-(drawingTime-timeLeft)*5)+(Object.keys(prior).length===0?200:0)});await update(ref(database,`rooms/${roomCode}/correctGuessers`),{[uid]:playerName});if(Object.keys(prior).length+1>=Math.max(1,players.length-1))await update(ref(database,`rooms/${roomCode}`),{deadline:Date.now()+1200});}setGuess('');return;}
     const guesserName = players.find((_, i) => i !== currentDrawer) || 'Player';
     if (correctGuessers.includes(guesserName)) { setGuess(''); return; }
 
