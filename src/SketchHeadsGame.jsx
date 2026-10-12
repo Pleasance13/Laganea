@@ -304,6 +304,7 @@ function levenshtein(a, b) {
 
 // ─── Main Game Component ───────────────────────────────────────────────────────
 
+// Multiplayer drawing reliability and per-round tool reset fixes
 const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMode = false }) => {
   const multiplayer = Boolean(roomCode);
   const [room, setRoom] = useState(null);
