@@ -265,6 +265,11 @@ import Game from './Game.jsx';
         );
       }
 
+      // Render the actual game once Firebase reports that the host has started it.
+      if (screen === 'setup' && gameState !== 'setup') {
+        return <Game roomCode={roomCode} playerName={playerName} isHost={isHost} darkMode={darkMode} onLeave={leaveRoom} />;
+      }
+
       // Setup screen
       if (screen === 'setup') {
         return (
