@@ -66,7 +66,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
       const createRoom = async () => {
         if (!playerName.trim()) return;
         try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
-        try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
         const code = generateRoomCode();
         setRoomCode(code);
         setIsHost(true);
@@ -75,9 +74,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
         
         const { ref, set } = await import('firebase/database');
         try {
+          const playerId = auth.currentUser.uid;
           await set(ref(db, `rooms/${code}`), {
-            host: playerName,
-            players: { [playerName]: true },
+            host: playerId,
+            players: { [playerId]: { name: playerName.trim(), joinedAt: Date.now() } },
             gameState: 'setup',
             maxRounds: 3,
             drawingTime: 90,
@@ -113,14 +113,19 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
           }
 
           // Add player to players list
+          if (snapshot.val().gameState !== 'setup') {
+            setSyncStatus('✗ This room has already started');
+            return;
+          }
+          const playerId = auth.currentUser.uid;
           await update(ref(db, `rooms/${code}/players`), {
-            [playerName]: true
+            [playerId]: { name: playerName.trim(), joinedAt: Date.now() }
           });
 
           // Get current players
           const playersSnapshot = await get(ref(db, `rooms/${code}/players`));
           if (playersSnapshot.exists()) {
-            setPlayers(Object.keys(playersSnapshot.val()));
+            setPlayers(Object.values(playersSnapshot.val()).map((p) => typeof p === 'string' ? p : p.name));
           }
           
           setSyncStatus('✓ Joined room');
@@ -141,30 +146,27 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
         setSyncStatus('');
       };
 
-      const loadRoomData = async () => {
-        const { ref, get } = await import('firebase/database');
-        try {
-          const snapshot = await get(ref(db, `rooms/${roomCode}`));
-          if (snapshot.exists()) {
+      useEffect(() => {
+        if (screen !== 'setup' || !roomCode) return;
+        let unsubscribe;
+        let active = true;
+        import('firebase/database').then(({ ref, onValue }) => {
+          if (!active) return;
+          unsubscribe = onValue(ref(db, `rooms/${roomCode}`), (snapshot) => {
+            if (!snapshot.exists()) {
+              setSyncStatus('✗ Room no longer exists');
+              return;
+            }
             const data = snapshot.val();
-            const playersList = data.players ? Object.keys(data.players) : [];
-            setPlayers(playersList);
+            const roomPlayers = data.players ? Object.values(data.players) : [];
+            setPlayers(roomPlayers.map((p) => typeof p === 'string' ? p : p.name));
             setMaxRounds(data.maxRounds || 3);
             setDrawingTime(data.drawingTime || 90);
             setCategory(data.category || 'general');
-          }
-        } catch (e) {
-          console.error('Error loading room data:', e);
-        }
-      };
-
-      // Reload room data periodically
-      useEffect(() => {
-        if (screen === 'setup' && roomCode) {
-          loadRoomData();
-          const interval = setInterval(loadRoomData, 2000);
-          return () => clearInterval(interval);
-        }
+            if (data.gameState && data.gameState !== 'setup') setGameState(data.gameState);
+          }, (error) => setSyncStatus('✗ Room sync error: ' + error.message));
+        }).catch((e) => setSyncStatus('✗ Room sync error: ' + e.message));
+        return () => { active = false; if (unsubscribe) unsubscribe(); };
       }, [screen, roomCode]);
 
       // Login screen
