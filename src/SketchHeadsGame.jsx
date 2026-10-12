@@ -1566,7 +1566,7 @@ Respond with ONLY the JSON array, nothing else.`
                       </div>
                     ) : (<><RefreshCw size={16} /> Get new prompts</>)}
                   </button>
-                </div>)
+                </div>
               ) : (
                 <div>
                   <div className={`mb-4 p-4 ${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} rounded-lg flex-shrink-0`}>
