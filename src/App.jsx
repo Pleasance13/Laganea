@@ -66,13 +66,14 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
       const createRoom = async () => {
         if (!playerName.trim()) return;
         try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
+        try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
         const code = generateRoomCode();
         setRoomCode(code);
         setIsHost(true);
         setPlayers([playerName]);
         setSyncStatus('Creating room...');
         
-        const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+        const { ref, set } = await import('firebase/database');
         try {
           await set(ref(db, `rooms/${code}`), {
             host: playerName,
@@ -95,12 +96,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
       const joinRoom = async () => {
         if (!playerName.trim() || !joinCode.trim()) return;
         try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
+        try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
         const code = joinCode.toUpperCase();
         setRoomCode(code);
         setIsHost(false);
         setSyncStatus('Joining room...');
         
-        const { ref, update, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+        const { ref, update, get } = await import('firebase/database');
         try {
           // First check if room exists
           const roomRef = ref(db, `rooms/${code}`);
@@ -140,7 +142,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
       };
 
       const loadRoomData = async () => {
-        const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js');
+        const { ref, get } = await import('firebase/database');
         try {
           const snapshot = await get(ref(db, `rooms/${roomCode}`));
           if (snapshot.exists()) {
