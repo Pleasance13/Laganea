@@ -305,7 +305,7 @@ function levenshtein(a, b) {
 // ─── Main Game Component ───────────────────────────────────────────────────────
 
 // Multiplayer drawing reliability and per-round tool reset fixes
-const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, onDarkModeChange, forceLobby = false, initialDarkMode = true }) => {
+const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, onResumeGame, onDarkModeChange, forceLobby = false, initialDarkMode = true }) => {
   const multiplayer = Boolean(roomCode);
   const [room, setRoom] = useState(null);
   const [uid, setUid] = useState(null);
@@ -316,6 +316,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
   const endRoundKeyRef = useRef(null);
   const lastLiveSyncRef = useRef(0);
   const roomTurnRef = useRef(null);
+  const lastRoomGameStateRef = useRef(null);
   const [gameState, setGameState] = useState('setup');
   const [players, setPlayers] = useState([]);
   const [currentDrawer, setCurrentDrawer] = useState(0);
@@ -393,7 +394,9 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
           setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);setAllowJoinInProgress(data.allowJoinInProgress!==false);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
-          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState(forceLobby?'setup':'playing');else if(data.gameState==='setup')setGameState('setup');setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
+          const previousRoomGameState = lastRoomGameStateRef.current;
+          lastRoomGameStateRef.current = data.gameState || 'setup';
+          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing' && forceLobby && previousRoomGameState==='setup'){setGameState('playing');onResumeGame?.();}else if(data.gameState==='playing')setGameState(forceLobby?'setup':'playing');else if(data.gameState==='setup')setGameState('setup');setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           setGuesses(Object.values(data.guesses||{}));setCorrectGuessers(Object.values(data.correctGuessers||{}));
@@ -783,7 +786,7 @@ Respond with ONLY the JSON array, nothing else.`
 
   const startGame = async () => {
     if (multiplayer) {
-      if (!isHost || !database || players.length < 2) return;
+      if (!isHost || !database || players.length < 2) onResumeGame?.(); return;
       const ids = Object.keys(room?.players || {});
       const scoresById = Object.fromEntries(ids.map(id => [id, 0]));
       const { ref, update } = await import("firebase/database");
@@ -1626,7 +1629,7 @@ Respond with ONLY the JSON array, nothing else.`
                   <p className={`text-lg mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Take a break!</p>
                   <div className="flex flex-col gap-3">
                     {(!multiplayer || isHost) && <button onClick={async () => { setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { paused: false }); } else setIsPaused(false); }} className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xl transition-colors">▶ Resume Game</button>}
-                    <button onClick={() => { const active = currentPrompt && gameState === 'playing' ? [{ prompt: currentPrompt.prompt, difficulty: currentPrompt.difficulty, drawer: players[currentDrawer] || playerName, image: getDrawing(), round }] : []; setQuitDrawings([...drawings, ...active]); setShowQuitConfirm(true); }} className="px-8 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors">Leave game</button>
+                    {(!multiplayer || isHost) && <button onClick={async () => { setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { gameState: 'finished', paused: false, deadline: null }); } else { setIsPaused(false); setGameState('gameEnd'); } }} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors">End game</button>}
                   </div>
                 </>
               )}
@@ -1868,7 +1871,7 @@ Respond with ONLY the JSON array, nothing else.`
                 {players.map(p => (
                   <div key={p} className={`flex justify-between py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'} last:border-0`}>
                     <span className={currentDrawer === players.indexOf(p) ? 'font-bold text-indigo-600' : `${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      {p} {currentDrawer === players.indexOf(p) && '🎨'}
+                      {p} {multiplayer && Object.entries(room?.players || {}).some(([id, entry]) => id === room?.host && (typeof entry === 'string' ? entry : entry.name) === p) && '👑'} {currentDrawer === players.indexOf(p) && '🎨'}
                       {correctGuessers.includes(p) && ' ✓'}
                     </span>
                     <span className={`font-bold ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>{scores[p] || 0}</span>
