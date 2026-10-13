@@ -46,6 +46,9 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       const [isHost, setIsHost] = useState(false);
       const [darkMode, setDarkMode] = useState(false);
       const [players, setPlayers] = useState([]);
+      const [playerEntries, setPlayerEntries] = useState([]);
+      const [allowJoinInProgress, setAllowJoinInProgress] = useState(true);
+      const [stayInLobby, setStayInLobby] = useState(false);
       const [maxRounds, setMaxRounds] = useState(3);
       const [drawingTime, setDrawingTime] = useState(90);
       const [category, setCategory] = useState('general');
@@ -84,6 +87,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
             host: playerId,
             players: { [playerId]: { name: playerName.trim(), joinedAt: Date.now() } },
             gameState: 'setup',
+            allowJoinInProgress: true,
             maxRounds,
             drawingTime,
             hintsEnabled,
@@ -91,7 +95,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
             category,
           });
           setSyncStatus('✓ Room created');
-          setScreen('setup');
+          setScreen('lobby');
         } catch (e) {
           setSyncStatus('✗ Error: ' + e.message);
           console.error('Error creating room:', e);
@@ -118,8 +122,9 @@ import LaganeaLogo from './LaganeaLogo.jsx';
           }
 
           // Add player to players list
-          if (snapshot.val().gameState !== 'setup') {
-            setSyncStatus('✗ This room has already started');
+          const roomData = snapshot.val();
+          if (roomData.gameState !== 'setup' && !(roomData.gameState === 'playing' && roomData.allowJoinInProgress !== false)) {
+            setSyncStatus('✗ This room is not accepting new players right now');
             return;
           }
           const playerId = auth.currentUser.uid;
@@ -134,7 +139,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
           }
           
           setSyncStatus('✓ Joined room');
-          setScreen('setup');
+          setScreen(roomData.gameState === 'playing' ? 'playing' : 'lobby');
         } catch (e) {
           setSyncStatus('✗ Error: ' + e.message);
           console.error('Error joining room:', e);
@@ -169,7 +174,13 @@ import LaganeaLogo from './LaganeaLogo.jsx';
         }
       };
 
+      const returnToLobby = (stay = false) => {
+        setStayInLobby(stay);
+        setScreen('lobby');
+      };
+
       const leaveRoom = () => {
+        setStayInLobby(false);
         setScreen('login');
         setRoomCode('');
         setPlayerName('');
@@ -180,7 +191,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       };
 
       useEffect(() => {
-        if (screen !== 'setup' || !roomCode) return;
+        if (screen !== 'lobby' || !roomCode) return;
         let unsubscribe;
         let active = true;
         import('firebase/database').then(({ ref, onValue }) => {
@@ -193,16 +204,22 @@ import LaganeaLogo from './LaganeaLogo.jsx';
             const data = snapshot.val();
             const roomPlayers = data.players ? Object.values(data.players) : [];
             setPlayers(roomPlayers.map((p) => typeof p === 'string' ? p : p.name));
+            setPlayerEntries(Object.entries(data.players || {}).map(([id,p]) => ({ id, name: typeof p === 'string' ? p : p.name || 'Player' })));
+            setAllowJoinInProgress(data.allowJoinInProgress !== false);
             setMaxRounds(data.maxRounds || 3);
             setDrawingTime(data.drawingTime || 90);
             setCategory(data.category || 'general');
             setHintsEnabled(data.hintsEnabled !== false);
             setHintFraction(Number(data.hintFraction) || 0.5);
-            if (data.gameState && data.gameState !== 'setup') setGameState(data.gameState);
+            setGameState(data.gameState || 'setup');
+            if (data.gameState === 'playing' && !stayInLobby) setScreen('playing');
+            else if (data.gameState === 'setup') setScreen('lobby');
+            const playerId = auth.currentUser?.uid;
+            if (playerId && data.players && !data.players[playerId]) { setSyncStatus('You were removed from this room.'); leaveRoom(); }
           }, (error) => setSyncStatus('✗ Room sync error: ' + error.message));
         }).catch((e) => setSyncStatus('✗ Room sync error: ' + e.message));
         return () => { active = false; if (unsubscribe) unsubscribe(); };
-      }, [screen, roomCode]);
+      }, [screen, roomCode, stayInLobby]);
 
       const saveRoomSetting = async (key, value) => {
         if (!isHost || !roomCode) return;
@@ -271,12 +288,12 @@ import LaganeaLogo from './LaganeaLogo.jsx';
 
       // Always use the preserved original JSX game for active multiplayer rooms.
       // The legacy screen === 'playing' branch below is only a placeholder and must not render.
-      if (screen === 'playing' || screen === 'setup') {
-        return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onLeave={leaveRoom} />;
+      if (screen === 'playing') {
+        return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onLeave={leaveRoom} onReturnToLobby={returnToLobby} />;
       }
 
       // Setup screen
-      if (screen === 'setup') {
+      if (screen === 'lobby') {
         return (
           <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`}>
             <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
@@ -303,9 +320,10 @@ import LaganeaLogo from './LaganeaLogo.jsx';
               <div className={`mb-6 p-4 ${darkMode ? 'bg-gray-700' : 'bg-indigo-50'} rounded-lg`}>
                 <h2 className={`font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>Players in room:</h2>
                 <div className="flex flex-wrap gap-2">
-                  {players.map((p, i) => (
-                    <div key={i} className={`px-3 py-1 rounded-full text-sm ${darkMode ? 'bg-gray-600 text-gray-100' : 'bg-indigo-200 text-indigo-900'}`}>
-                      {p} {isHost && players[0] === p && '👑'}
+                  {playerEntries.map((p) => (
+                    <div key={p.id} className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${darkMode ? 'bg-gray-600 text-gray-100' : 'bg-indigo-200 text-indigo-900'}`}>
+                      <span>{p.name} {isHost && p.id === playerEntries[0]?.id && '👑'}</span>
+                      {isHost && p.id !== playerEntries[0]?.id && <button onClick={async () => { const { ref, update } = await import('firebase/database'); const patch = { [`players/${p.id}`]: null, [`scores/${p.id}`]: null }; await update(ref(db, `rooms/${roomCode}`), patch); }} className="text-red-600 hover:text-red-800 font-black leading-none" title={`Kick ${p.name}`} aria-label={`Kick ${p.name}`}>✕</button>}
                     </div>
                   ))}
                 </div>
@@ -331,6 +349,10 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                     <input type="range" min="1" max="5" value={maxRounds} onChange={(e) => { const value = parseInt(e.target.value, 10); setMaxRounds(value); saveRoomSetting('maxRounds', value); }} className="w-full" />
                   </div>
 
+                  <div className={`flex items-center justify-between gap-4 rounded-lg p-3 ${darkMode ? 'bg-gray-700' : 'bg-indigo-50'}`}>
+                    <div><div className="font-semibold">Allow joining in progress</div><div className="text-xs opacity-70">New players can enter after a game starts.</div></div>
+                    <button onClick={() => { const next = !allowJoinInProgress; setAllowJoinInProgress(next); saveRoomSetting('allowJoinInProgress', next); }} role="switch" aria-checked={allowJoinInProgress} className={`w-12 h-7 rounded-full p-1 transition-colors ${allowJoinInProgress ? 'bg-indigo-500' : 'bg-gray-400'}`}><span className={`block w-5 h-5 rounded-full bg-white transition-transform ${allowJoinInProgress ? 'translate-x-5' : ''}`} /></button>
+                  </div>
                   <div>
                     <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Drawing Time: {drawingTime}s</label>
                     <input type="range" min="30" max="120" step="15" value={drawingTime} onChange={(e) => { const value = parseInt(e.target.value, 10); setDrawingTime(value); saveRoomSetting('drawingTime', value); }} className="w-full" />
