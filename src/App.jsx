@@ -107,6 +107,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
         }
       };
       const saveUserSetting = (key, value) => saveUserPreference(`settings/${key}`, value);
+      const handleDarkModeChange = useCallback((value) => { setDarkMode(value); saveUserPreference('darkMode', value); }, []);
 
       const createRoom = async () => {
         if (!playerName.trim()) return;
@@ -328,7 +329,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       // Always use the preserved original JSX game for active multiplayer rooms.
       // The legacy screen === 'playing' branch below is only a placeholder and must not render.
       if (screen === 'playing') {
-        return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onLeave={leaveRoom} onReturnToLobby={returnToLobby} />;
+        return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onDarkModeChange={handleDarkModeChange} onLeave={leaveRoom} onReturnToLobby={returnToLobby} />;
       }
 
       // Setup screen
