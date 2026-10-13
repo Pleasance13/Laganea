@@ -305,7 +305,7 @@ function levenshtein(a, b) {
 // ─── Main Game Component ───────────────────────────────────────────────────────
 
 // Multiplayer drawing reliability and per-round tool reset fixes
-const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMode = false }) => {
+const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, initialDarkMode = false }) => {
   const multiplayer = Boolean(roomCode);
   const [room, setRoom] = useState(null);
   const [uid, setUid] = useState(null);
@@ -362,6 +362,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
 
   // Quit confirmation state
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const [quitDrawings, setQuitDrawings] = useState([]);
 
   const baseColors = [
     '#2D3748', '#E53E3E', '#DD6B20', '#D69E2E', '#38A169',
@@ -390,7 +391,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
           setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
-          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');else if(data.gameState==='setup')setGameState('setup');if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
+          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');else if(data.gameState==='setup')setGameState('setup');setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           setGuesses(Object.values(data.guesses||{}));setCorrectGuessers(Object.values(data.correctGuessers||{}));
@@ -1472,7 +1473,7 @@ Respond with ONLY the JSON array, nothing else.`
               ))}
             </div>
           </div>
-          <button onClick={async () => { if (multiplayer && !isHost) { onLeave?.(); return; } if (multiplayer && isHost && database) { const { ref, update } = await import('firebase/database'); const scores = Object.fromEntries(Object.keys(room?.players || {}).map(id => [id, 0])); await update(ref(database, 'rooms/' + roomCode), { gameState: 'setup', round: 1, turnIndex: 0, prompt: null, deadline: null, scores, guesses: null, correctGuessers: null, drawingImage: null, drawingHistory: null }); } setGameState('setup'); setDrawings([]); setScores({}); setRound(1); setCurrentDrawer(0); setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]); setTimeLeft(drawingTime); setUsedPrompts(new Set()); setTool('pen'); setBrushSize(3); setColor('#2D3748'); setCustomColor('#2D3748'); endRoundKeyRef.current = null; clearCanvasInternal(); }}
+          <button onClick={async () => { if (multiplayer && !isHost) { onReturnToLobby?.(true); return; } if (multiplayer && isHost && database) { const { ref, update } = await import('firebase/database'); const scores = Object.fromEntries(Object.keys(room?.players || {}).map(id => [id, 0])); await update(ref(database, 'rooms/' + roomCode), { gameState: 'setup', round: 1, turnIndex: 0, prompt: null, deadline: null, scores, guesses: null, correctGuessers: null, drawingImage: null, drawingHistory: null, paused: false }); onReturnToLobby?.(false); return; } setGameState('setup'); setDrawings([]); setScores({}); setRound(1); setCurrentDrawer(0); setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]); setTimeLeft(drawingTime); setUsedPrompts(new Set()); setTool('pen'); setBrushSize(3); setColor('#2D3748'); setCustomColor('#2D3748'); endRoundKeyRef.current = null; clearCanvasInternal(); }}
             className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-bold text-xl hover:from-indigo-600 hover:to-purple-600 transition-all transform hover:scale-105">
             Return to menu
           </button>
@@ -1532,11 +1533,8 @@ Respond with ONLY the JSON array, nothing else.`
             <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`} title="Toggle dark mode">
               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <button onClick={() => { setIsPaused(!isPaused); setShowQuitConfirm(false); }}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${isPaused ? 'bg-gray-400 text-white cursor-default' : 'bg-yellow-500 hover:bg-yellow-600 text-white'}`}
-              disabled={isPaused}>
-              {isPaused ? 'Paused' : '⏸ Pause'}
-            </button>
+            {(!multiplayer || isHost) && <button onClick={async () => { const next = !isPaused; setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { paused: next }); } else setIsPaused(next); }} className={`px-4 py-2 rounded-lg font-semibold transition-colors ${isPaused ? 'bg-gray-400 text-white cursor-default' : 'bg-yellow-500 hover:bg-yellow-600 text-white'}`} disabled={isPaused}>{isPaused ? 'Paused' : '⏸ Pause'}</button>}
+            {multiplayer && <button onClick={() => { const active = currentPrompt && gameState === 'playing' ? [{ prompt: currentPrompt.prompt, difficulty: currentPrompt.difficulty, drawer: players[currentDrawer] || playerName, image: getDrawing(), round }] : []; setQuitDrawings([...drawings, ...active]); setShowQuitConfirm(true); }} className="px-4 py-2 rounded-lg font-semibold bg-red-500 hover:bg-red-600 text-white">Leave game</button>}
             <div className="text-right">
               <div className="text-3xl font-bold text-indigo-600">{currentPrompt ? timeLeft : drawingTime}s</div>
               <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Drawer: {drawerName}</div>
@@ -1544,19 +1542,19 @@ Respond with ONLY the JSON array, nothing else.`
           </div>
         </div>
 
-        {/* Pause Overlay */}
-        {isPaused && (
+        {/* Pause / Leave Overlay */}
+        {(isPaused || showQuitConfirm) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl p-8 text-center max-w-lg w-full mx-4`}>
               {showQuitConfirm ? (
                 <>
                   <h2 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Quit to menu?</h2>
                   <p className={`mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {drawings.length > 0 ? 'Save any drawings you want to keep first.' : 'All current game progress will be lost.'}
+                    {quitDrawings.length > 0 ? 'Save any drawings you want to keep first.' : 'You can return to the lobby without ending the game.'}
                   </p>
-                  {drawings.length > 0 && (
+                  {quitDrawings.length > 0 && (
                     <div className="grid grid-cols-2 gap-3 mb-5 max-h-56 overflow-y-auto">
-                      {drawings.map((drawing, i) => (
+                      {quitDrawings.map((drawing, i) => (
                         <div key={i} className={`border-2 ${darkMode ? 'border-gray-600' : 'border-gray-200'} rounded-lg p-2`}>
                           <img src={drawing.image} alt={drawing.prompt} className="w-full mb-1 rounded" />
                           <div className="flex justify-between items-center">
@@ -1570,15 +1568,7 @@ Respond with ONLY the JSON array, nothing else.`
                     </div>
                   )}
                   <div className="flex gap-3 justify-center">
-                    <button onClick={() => {
-                      setShowQuitConfirm(false); setIsPaused(false); setGameState('setup');
-                      setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]);
-                      setRound(1); setCurrentDrawer(0); setTimeLeft(90); setPromptSelectionTime(30);
-                      setRevealedLetters([]); setShowClearDialog(false); setShowColorPicker(false);
-                      setDrawings([]); setUsedPrompts(new Set()); clearCanvasInternal();
-                    }} className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors">
-                      Quit
-                    </button>
+                    <button onClick={() => { setShowQuitConfirm(false); if (multiplayer) { onReturnToLobby?.(true); return; } setIsPaused(false); setGameState('setup'); setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]); setRound(1); setCurrentDrawer(0); setTimeLeft(90); setPromptSelectionTime(30); setRevealedLetters([]); setShowClearDialog(false); setShowColorPicker(false); setDrawings([]); setUsedPrompts(new Set()); clearCanvasInternal(); }} className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors">Return to lobby</button>
                     <button onClick={() => setShowQuitConfirm(false)} className={`px-6 py-3 rounded-lg font-bold transition-colors ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>
                       Cancel
                     </button>
@@ -1589,8 +1579,8 @@ Respond with ONLY the JSON array, nothing else.`
                   <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>⏸ Game Paused</h2>
                   <p className={`text-lg mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Take a break!</p>
                   <div className="flex flex-col gap-3">
-                    <button onClick={() => { setIsPaused(false); setShowQuitConfirm(false); }} className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xl transition-colors">▶ Resume Game</button>
-                    <button onClick={() => setShowQuitConfirm(true)} className="px-8 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors">Quit to Menu</button>
+                    <button onClick={async () => { setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { paused: false }); } else setIsPaused(false); }} className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xl transition-colors">▶ Resume Game</button>
+                    <button onClick={() => { const active = currentPrompt && gameState === 'playing' ? [{ prompt: currentPrompt.prompt, difficulty: currentPrompt.difficulty, drawer: players[currentDrawer] || playerName, image: getDrawing(), round }] : []; setQuitDrawings([...drawings, ...active]); setShowQuitConfirm(true); }} className="px-8 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors">Leave game</button>
                   </div>
                 </>
               )}
