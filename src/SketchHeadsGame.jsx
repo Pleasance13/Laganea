@@ -432,6 +432,21 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost: initialIsHost, onLeave,
     return () => { active = false; };
   }, [database, uid, room?.customPromptPacks]);
 
+  useEffect(() => {
+    if (!multiplayer || !room || room.gameState !== 'playing' || Object.keys(room.players || {}).length !== 1 || !room.soloDeadline) { setSoloTimeLeft(30); return; }
+    const tick = async () => {
+      const remaining = Math.max(0, Math.ceil((room.soloDeadline - Date.now()) / 1000));
+      setSoloTimeLeft(remaining);
+      if (remaining === 0 && isHost && database) {
+        const { ref, update } = await import('firebase/database');
+        await update(ref(database, `rooms/${roomCode}`), { gameState: 'finished', paused: false, deadline: null, soloDeadline: null });
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [multiplayer, room?.gameState, room?.soloDeadline, room?.players, isHost, database, roomCode]);
+
   useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
   useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);}},[multiplayer,room?.round,room?.turnIndex]);
   useEffect(()=>{if(!multiplayer||!canvasRef.current)return;if(room?.drawingImage==null){if(remoteImageRef.current!==null){const c=canvasRef.current;c.getContext('2d').clearRect(0,0,c.width,c.height);remoteImageRef.current=null;}return;}if(Object.keys(room.players||{})[room.turnIndex||0]===uid||room.drawingImage===remoteImageRef.current)return;const imageData=room.drawingImage;remoteImageRef.current=imageData;const img=new Image();img.onload=()=>{if(remoteImageRef.current!==imageData)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);};img.src=imageData;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
@@ -1602,10 +1617,19 @@ Respond with ONLY the JSON array, nothing else.`
         </div>
 
         {/* Pause / Leave Overlay */}
-        {(isPaused || showQuitConfirm) && (
+        {(isPaused || showQuitConfirm || showEndGameConfirm) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl p-8 text-center max-w-lg w-full mx-4`}>
-              {showQuitConfirm ? (
+              {showEndGameConfirm ? (
+                <>
+                  <h2 className={`text-3xl font-bold mb-3 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>End game for everyone?</h2>
+                  <p className={`mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>This will stop the current game for every player. You can’t undo this action.</p>
+                  <div className="flex gap-3 justify-center">
+                    <button onClick={async () => { setShowEndGameConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, `rooms/${roomCode}`), { gameState: 'finished', paused: false, deadline: null, soloDeadline: null }); } else { setIsPaused(false); setGameState('gameEnd'); } }} className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold">End game</button>
+                    <button onClick={() => setShowEndGameConfirm(false)} className={`px-6 py-3 rounded-lg font-bold ${darkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>Cancel</button>
+                  </div>
+                </>
+              ) : showQuitConfirm ? (
                 <>
                   <h2 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Return to lobby?</h2>
                   <p className={`mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -1639,7 +1663,7 @@ Respond with ONLY the JSON array, nothing else.`
                   <p className={`text-lg mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Take a break!</p>
                   <div className="flex flex-col gap-3">
                     {(!multiplayer || isHost) && <button onClick={async () => { setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { paused: false }); } else setIsPaused(false); }} className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xl transition-colors">▶ Resume Game</button>}
-                    {(!multiplayer || isHost) && <button onClick={async () => { setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { gameState: 'finished', paused: false, deadline: null }); } else { setIsPaused(false); setGameState('gameEnd'); } }} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors">End game</button>}
+                    {(!multiplayer || isHost) && <button onClick={() => { setShowQuitConfirm(false); setShowEndGameConfirm(true); }} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors">End game</button>}
                   </div>
                 </>
               )}
