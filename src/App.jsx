@@ -319,7 +319,6 @@ import { Sun, Moon } from 'lucide-react';
                   {darkMode ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
               </div>
-              </div>
 
               <div className="space-y-4 mb-6">
                 <div>
