@@ -434,7 +434,6 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost: initialIsHost, onLeave,
 
   useEffect(() => {
     if (!multiplayer || !room || room.gameState !== 'playing' || Object.keys(room.players || {}).length !== 1 || !room.soloDeadline) { setSoloTimeLeft(30); return; }
-    if (room.paused) { setSoloTimeLeft(Math.max(0, Math.ceil(Number(room.soloPausedRemainingMs ?? (room.soloDeadline - Date.now())) / 1000))); return; }
     const tick = async () => {
       const remaining = Math.max(0, Math.ceil((room.soloDeadline - Date.now()) / 1000));
       setSoloTimeLeft(remaining);
@@ -446,7 +445,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost: initialIsHost, onLeave,
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [multiplayer, room?.gameState, room?.soloDeadline, room?.soloPausedRemainingMs, room?.paused, room?.players, isHost, database, roomCode]);
+  }, [multiplayer, room?.gameState, room?.soloDeadline, room?.players, isHost, database, roomCode]);
 
   useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
   useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);}},[multiplayer,room?.round,room?.turnIndex]);
