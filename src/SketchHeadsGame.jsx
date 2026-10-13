@@ -391,7 +391,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
           setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
-          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');else if(data.gameState==='setup')setGameState('setup');setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
+          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');else if(data.gameState==='setup'){setGameState('setup');onReturnToLobby?.(false);}setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           setGuesses(Object.values(data.guesses||{}));setCorrectGuessers(Object.values(data.correctGuessers||{}));
@@ -1548,7 +1548,7 @@ Respond with ONLY the JSON array, nothing else.`
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-2xl p-8 text-center max-w-lg w-full mx-4`}>
               {showQuitConfirm ? (
                 <>
-                  <h2 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Quit to menu?</h2>
+                  <h2 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Return to lobby?</h2>
                   <p className={`mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     {quitDrawings.length > 0 ? 'Save any drawings you want to keep first.' : 'You can return to the lobby without ending the game.'}
                   </p>
