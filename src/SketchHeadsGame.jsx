@@ -391,12 +391,17 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost: initialIsHost, onLeave,
     let active=true, unsubscribe;
     (async()=>{
       try {
-        const [{initializeApp,getApps,getApp},{getDatabase,ref,onValue},{getAuth,signInAnonymously}]=await Promise.all([import('firebase/app'),import('firebase/database'),import('firebase/auth')]);
+        const [{initializeApp,getApps,getApp},{getDatabase,ref,onValue,onDisconnect,runTransaction,update},{getAuth,signInAnonymously}]=await Promise.all([import('firebase/app'),import('firebase/database'),import('firebase/auth')]);
         const config={apiKey:"AIzaSyAPSE2wneubHrTrCCsDn8ZEHyoszchOia0",authDomain:"laganea-drawing-game.firebaseapp.com",databaseURL:"https://laganea-drawing-game-default-rtdb.firebaseio.com",projectId:"laganea-drawing-game",storageBucket:"laganea-drawing-game.firebasestorage.app",messagingSenderId:"975169860070",appId:"1:975169860070:web:a3df9d3ffb85d4f1faa627"};
         const app=getApps().length?getApp():initializeApp(config),auth=getAuth(app);if(!auth.currentUser)await signInAnonymously(auth);
         const db=getDatabase(app);if(!active)return;setDatabase(db);setUid(auth.currentUser.uid);
+        const ownPlayerRef=ref(db,`rooms/${roomCode}/players/${auth.currentUser.uid}`);
+        onDisconnect(ownPlayerRef).remove().catch(err=>console.warn('Could not register disconnect cleanup',err));
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
+          if(data.host && !data.players?.[data.host] && entries.length){const candidate=entries[0][0];runTransaction(ref(db,`rooms/${roomCode}/host`),current=>current && data.players?.[current] ? current : candidate).catch(err=>console.warn('Host handoff failed',err));}
+          if(data.gameState==='playing' && entries.length<=1 && !data.soloDeadline){update(ref(db,`rooms/${roomCode}`),{soloDeadline:Date.now()+30000}).catch(()=>{});}
+          if(entries.length>1 && data.soloDeadline){update(ref(db,`rooms/${roomCode}`),{soloDeadline:null}).catch(()=>{});}
           setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);setAllowJoinInProgress(data.allowJoinInProgress!==false);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
           const previousRoomGameState = lastRoomGameStateRef.current;
           lastRoomGameStateRef.current = data.gameState || 'setup';
