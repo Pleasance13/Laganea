@@ -313,11 +313,12 @@ import { Sun, Moon } from 'lucide-react';
         return (
           <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8 flex items-center justify-center`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed', backgroundSize: 'cover' }}>
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-12 w-full max-w-md`}>
-              <div className="flex justify-between items-center mb-8">
-                <div className="flex-1 flex justify-center"><LaganeaLogo width={245} /></div>
-                <button onClick={() => { const next = !darkMode; setDarkMode(next); saveUserPreference('darkMode', next); }} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`}>
+              <div className="relative flex justify-center items-center mb-8 min-h-[60px]">
+                <div className="flex justify-center w-full"><LaganeaLogo width={245} /></div>
+                <button onClick={() => { const next = !darkMode; setDarkMode(next); saveUserPreference('darkMode', next); }} className={`absolute top-0 right-0 px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`} title="Toggle dark mode">
                   {darkMode ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
+              </div>
               </div>
 
               <div className="space-y-4 mb-6">
