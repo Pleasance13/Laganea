@@ -326,9 +326,8 @@ import LaganeaLogo from './LaganeaLogo.jsx';
         );
       }
 
-      // Always use the preserved original JSX game for active multiplayer rooms.
-      // The legacy screen === 'playing' branch below is only a placeholder and must not render.
-      if (screen === 'playing') {
+      // Use the original JSX setup/menu as the lobby, and the same original game component during play.
+      if (screen === 'playing' || screen === 'lobby') {
         return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onDarkModeChange={handleDarkModeChange} onLeave={leaveRoom} onReturnToLobby={returnToLobby} />;
       }
 
