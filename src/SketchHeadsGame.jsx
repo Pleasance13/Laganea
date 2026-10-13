@@ -1662,7 +1662,7 @@ Respond with ONLY the JSON array, nothing else.`
                   <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>⏸ Game Paused</h2>
                   <p className={`text-lg mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Take a break!</p>
                   <div className="flex flex-col gap-3">
-                    {(!multiplayer || isHost) && <button onClick={async () => { setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { paused: false }); } else setIsPaused(false); }} className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xl transition-colors">▶ Resume Game</button>}
+                    {(!multiplayer || isHost) && <button onClick={async () => { setShowQuitConfirm(false); if (multiplayer && database) { const { ref, update } = await import('firebase/database'); await update(ref(database, 'rooms/' + roomCode), { paused: false, deadline: Date.now() + Math.max(1000, Number(room?.pausedRemainingMs) || (currentPrompt ? timeLeft : promptSelectionTime) * 1000), pausedRemainingMs: null }); } else setIsPaused(false); }} className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold text-xl transition-colors">▶ Resume Game</button>}
                     {(!multiplayer || isHost) && <button onClick={() => { setShowQuitConfirm(false); setShowEndGameConfirm(true); }} className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors">End game</button>}
                   </div>
                 </>
