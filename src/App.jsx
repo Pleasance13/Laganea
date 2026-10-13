@@ -338,7 +338,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
           <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed', backgroundSize: 'cover' }}>
             <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
               <div className="relative flex items-start justify-between gap-3 mb-8">
-                <div className="flex-1 flex flex-col items-center text-center pt-1">
+                <div className="flex flex-col items-start text-left pt-1">
                   <LaganeaLogo width={210} />
                   <div className={`mt-3 inline-flex items-center gap-3 rounded-xl px-4 py-2 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-indigo-50 text-gray-800'}`}>
                     <span className="text-sm">Room code</span><span className="font-mono text-xl font-black tracking-widest">{roomCode}</span>
