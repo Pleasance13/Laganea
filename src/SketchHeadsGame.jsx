@@ -311,6 +311,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
   const [uid, setUid] = useState(null);
   const [database, setDatabase] = useState(null);
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
+  const [allowJoinInProgress, setAllowJoinInProgress] = useState(true);
   const remoteImageRef = useRef(null);
   const endRoundKeyRef = useRef(null);
   const lastLiveSyncRef = useRef(0);
@@ -391,7 +392,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
         const db=getDatabase(app);if(!active)return;setDatabase(db);setUid(auth.currentUser.uid);
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
-          setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
+          setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);setAllowJoinInProgress(data.allowJoinInProgress!==false);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
           if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');else if(data.gameState==='setup'){setGameState('setup');onReturnToLobby?.(false);}setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
@@ -1331,12 +1332,16 @@ Respond with ONLY the JSON array, nothing else.`
               }} className="px-6 py-2 bg-indigo-500 text-white rounded-lg font-semibold hover:bg-indigo-600 transition-colors">Add</button>
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
-              {players.map((p, i) => (
-                <div key={i} className={`${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-100 to-purple-100'} px-4 py-2 rounded-full flex items-center gap-2`}>
-                  <span className={`font-medium ${darkMode ? 'text-gray-200' : ''}`}>{p}</span>
-                  {!multiplayer && <button onClick={() => setPlayers(players.filter((_, idx) => idx !== i))} className="text-red-500 font-bold hover:text-red-700">×</button>}
-                </div>
-              ))}
+              {players.map((p, i) => {
+                const playerId = Object.keys(room?.players || {})[i];
+                return (
+                  <div key={playerId || i} className={`${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-100 to-purple-100'} px-4 py-2 rounded-full flex items-center gap-2`}>
+                    <span className={`font-medium ${darkMode ? 'text-gray-200' : ''}`}>{p}</span>
+                    {!multiplayer && <button onClick={() => setPlayers(players.filter((_, idx) => idx !== i))} className="text-red-500 font-bold hover:text-red-700">×</button>}
+                    {multiplayer && isHost && playerId && playerId !== uid && <button onClick={async () => { if (!database) return; const { ref, update } = await import('firebase/database'); await update(ref(database, `rooms/${roomCode}`), { [`players/${playerId}`]: null, [`scores/${playerId}`]: null }); }} className="text-red-500 font-bold hover:text-red-700" title={`Kick ${p}`} aria-label={`Kick ${p}`}>×</button>}
+                  </div>
+                );
+              })}
             </div>
           </div>
           <button onClick={startGame} disabled={players.length < 2 || (multiplayer && !isHost)}
@@ -1382,6 +1387,20 @@ Respond with ONLY the JSON array, nothing else.`
                   <span>30s</span><span>45s</span><span>1m</span><span>1:15</span><span>1:30</span><span>1:45</span><span>2m</span>
                 </div>
               </div>
+
+              {multiplayer && (
+                <div className={`flex items-center justify-between gap-4 py-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                  <div>
+                    <p className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Allow joining in progress</p>
+                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Let new players join after the game starts.</p>
+                  </div>
+                  <button type="button" disabled={!isHost} role="switch" aria-checked={allowJoinInProgress}
+                    onClick={() => { const next = !allowJoinInProgress; setAllowJoinInProgress(next); saveMultiplayerSetting('allowJoinInProgress', next); }}
+                    className={`relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 ${allowJoinInProgress ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${allowJoinInProgress ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              )}
 
               {/* Hints */}
               <div>
