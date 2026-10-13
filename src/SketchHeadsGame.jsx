@@ -1671,6 +1671,27 @@ Respond with ONLY the JSON array, nothing else.`
           </div>
         )}
 
+        {multiplayer && room?.gameState === 'playing' && Object.keys(room.players || {}).length === 1 && room.soloDeadline && !soloDialogDismissed && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+            <div className={`max-w-md w-full rounded-2xl shadow-2xl p-7 text-center ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'}`}>
+              <h2 className="text-2xl font-bold mb-3">You're the last player here</h2>
+              <p className={`mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Someone may reconnect before the game ends. The game will automatically end in:</p>
+              <div className="text-4xl font-bold text-indigo-500 mb-6">{soloTimeLeft}s</div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button onClick={async () => { if (database) { const { ref, update } = await import('firebase/database'); await update(ref(database, `rooms/${roomCode}`), { gameState: 'finished', paused: false, deadline: null, soloDeadline: null }); } }} className="px-5 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold">End game now</button>
+                <button onClick={() => setSoloDialogDismissed(true)} className={`px-5 py-3 rounded-lg font-bold ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-100' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}>Keep waiting</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {multiplayer && soloDialogDismissed && room?.gameState === 'playing' && Object.keys(room.players || {}).length === 1 && room.soloDeadline && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 rounded-xl bg-gray-900/95 text-white px-4 py-3 shadow-lg flex items-center gap-4">
+            <span>Waiting for another player · {soloTimeLeft}s</span>
+            <button onClick={async () => { if (database) { const { ref, update } = await import('firebase/database'); await update(ref(database, `rooms/${roomCode}`), { gameState: 'finished', paused: false, deadline: null, soloDeadline: null }); } }} className="text-red-300 hover:text-red-200 font-bold">End game</button>
+            <button onClick={() => setSoloDialogDismissed(false)} className="text-gray-300 hover:text-white" aria-label="Show countdown">Show</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-4 h-[calc(100vh-12rem)]">
           {/* Drawing Area */}
           <div className="col-span-2 flex flex-col h-full">
