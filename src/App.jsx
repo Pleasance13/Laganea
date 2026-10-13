@@ -219,13 +219,18 @@ import LaganeaLogo from './LaganeaLogo.jsx';
         setForceLobby(true);
         setScreen('lobby');
       };
+      const resumeGame = () => {
+        setForceLobby(false);
+        setStayInLobby(false);
+        setScreen('playing');
+      };
 
       const leaveRoom = () => {
         setStayInLobby(false);
         setForceLobby(false);
         setScreen('login');
         setRoomCode('');
-        setPlayerName('');
+        setJoinCode('');
         setPlayers([]);
         setIsHost(false);
         setGameState('setup');
@@ -331,7 +336,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
 
       // Use the original JSX setup/menu as the lobby, and the same original game component during play.
       if (screen === 'playing' || screen === 'lobby') {
-        return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onDarkModeChange={handleDarkModeChange} forceLobby={forceLobby} onLeave={leaveRoom} onReturnToLobby={returnToLobby} />;
+        return <SketchHeadsGame roomCode={roomCode} playerName={playerName} isHost={isHost} initialDarkMode={darkMode} onDarkModeChange={handleDarkModeChange} forceLobby={forceLobby} onLeave={leaveRoom} onReturnToLobby={returnToLobby} onResumeGame={resumeGame} />;
       }
 
       // Setup screen
