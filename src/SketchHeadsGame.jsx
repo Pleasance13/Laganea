@@ -390,7 +390,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, initialDarkMod
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
           setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
-          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');
+          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');else if(data.gameState==='setup')setGameState('setup');if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           setGuesses(Object.values(data.guesses||{}));setCorrectGuessers(Object.values(data.correctGuessers||{}));
@@ -759,13 +759,16 @@ Respond with ONLY the JSON array, nothing else.`
       const ids = Object.keys(room?.players || {});
       const scoresById = Object.fromEntries(ids.map(id => [id, 0]));
       const { ref, update } = await import("firebase/database");
-      await update(ref(database, "rooms/" + roomCode), { gameState: "playing", round: 1, turnIndex: 0, prompt: null, deadline: Date.now() + 30000, scores: scoresById, guesses: null, correctGuessers: null, drawingImage: null, category, maxRounds, drawingTime, hintsEnabled, hintFraction });
+      await update(ref(database, "rooms/" + roomCode), { gameState: "playing", round: 1, turnIndex: 0, prompt: null, deadline: Date.now() + 30000, scores: scoresById, guesses: null, correctGuessers: null, drawingImage: null, drawingHistory: null, category, maxRounds, drawingTime, hintsEnabled, hintFraction });
+      setDrawings([]); setUsedPrompts(new Set()); setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]); endRoundKeyRef.current = null;
       return;
     }
     if (players.length < 2) { alert('Need at least 2 players!'); return; }
     const initialScores = {};
     players.forEach(p => initialScores[p] = 0);
     setScores(initialScores);
+    setDrawings([]);
+    setTool('pen'); setBrushSize(3); setColor('#2D3748'); setCustomColor('#2D3748');
     setRound(1);
     setCurrentDrawer(0);
     setCurrentPrompt(null);
@@ -854,7 +857,26 @@ Respond with ONLY the JSON array, nothing else.`
     if(multiplayer){
       const roundKey = `${room?.round || round}:${room?.turnIndex ?? currentDrawer}`;
       if (endRoundKeyRef.current === roundKey) return;
-      endRoundKeyRef.current = roundKey;const ids=Object.keys(room?.players||{});if(!database||ids[currentDrawer]!==uid)return;if(currentPrompt)setDrawings(prev=>[...prev,{prompt:currentPrompt.prompt,difficulty:currentPrompt.difficulty,drawer:players[currentDrawer],image:getDrawing(),round}]);const {ref,update}=await import('firebase/database');if(currentPrompt&&correctGuessers.length){const bonus=({easy:100,medium:200,hard:300})[currentPrompt.difficulty]||150;await update(ref(database,`rooms/${roomCode}/scores`),{[ids[currentDrawer]]:(room?.scores?.[ids[currentDrawer]]||0)+bonus});}const next=round+1;if(next>maxRounds*Math.max(1,players.length))await update(ref(database,`rooms/${roomCode}`),{gameState:'finished',deadline:null});else await update(ref(database,`rooms/${roomCode}`),{gameState:'playing',round:next,turnIndex:(currentDrawer+1)%players.length,prompt:null,deadline:Date.now()+30000,guesses:null,correctGuessers:null,drawingImage:null});clearCanvasInternal();setCurrentPrompt(null);setPromptOptions([]);setGuesses([]);setCorrectGuessers([]);setPromptSelectionTime(30);setRevealedLetters([]);return;}
+      const ids = Object.keys(room?.players || {});
+      if (!database || ids[currentDrawer] !== uid) return;
+      endRoundKeyRef.current = roundKey;
+      const { ref, update } = await import('firebase/database');
+      const history = Array.isArray(room?.drawingHistory) ? room.drawingHistory : [];
+      const drawing = currentPrompt ? { prompt: currentPrompt.prompt, difficulty: currentPrompt.difficulty, drawer: players[currentDrawer], image: getDrawing(), round } : null;
+      const nextHistory = drawing ? [...history.filter(item => !(item.round === round && item.drawer === players[currentDrawer])), drawing] : history;
+      if (drawing) setDrawings(nextHistory);
+      if (currentPrompt && correctGuessers.length) {
+        const bonus = ({ easy: 100, medium: 200, hard: 300 })[currentPrompt.difficulty] || 150;
+        await update(ref(database, `rooms/${roomCode}/scores`), { [ids[currentDrawer]]: (room?.scores?.[ids[currentDrawer]] || 0) + bonus });
+      }
+      const next = round + 1;
+      if (next > maxRounds * Math.max(1, players.length)) {
+        await update(ref(database, `rooms/${roomCode}`), { drawingHistory: nextHistory, gameState: 'finished', deadline: null });
+      } else {
+        await update(ref(database, `rooms/${roomCode}`), { drawingHistory: nextHistory, gameState: 'playing', round: next, turnIndex: (currentDrawer + 1) % players.length, prompt: null, deadline: Date.now() + 30000, guesses: null, correctGuessers: null, drawingImage: null });
+      }
+      clearCanvasInternal(); setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]); setPromptSelectionTime(30); setRevealedLetters([]); return;
+    }
     if (currentPrompt) {
       const drawing = getDrawing();
       setDrawings([...drawings, {
@@ -1450,9 +1472,9 @@ Respond with ONLY the JSON array, nothing else.`
               ))}
             </div>
           </div>
-          <button onClick={() => { setGameState('setup'); setDrawings([]); setUsedPrompts(new Set()); }}
+          <button onClick={async () => { if (multiplayer && isHost && database) { const { ref, update } = await import('firebase/database'); const scores = Object.fromEntries(Object.keys(room?.players || {}).map(id => [id, 0])); await update(ref(database, 'rooms/' + roomCode), { gameState: 'setup', round: 1, turnIndex: 0, prompt: null, deadline: null, scores, guesses: null, correctGuessers: null, drawingImage: null, drawingHistory: null }); } setGameState('setup'); setDrawings([]); setScores({}); setRound(1); setCurrentDrawer(0); setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]); setTimeLeft(drawingTime); setUsedPrompts(new Set()); setTool('pen'); setBrushSize(3); setColor('#2D3748'); setCustomColor('#2D3748'); endRoundKeyRef.current = null; clearCanvasInternal(); }}
             className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-bold text-xl hover:from-indigo-600 hover:to-purple-600 transition-all transform hover:scale-105">
-            New Game
+            Return to menu
           </button>
         </div>
       </div>
@@ -1762,7 +1784,7 @@ Respond with ONLY the JSON array, nothing else.`
                   ref={canvasRef}
                   width={800}
                   height={600}
-                  className={`border-4 ${darkMode ? 'border-gray-600' : 'border-indigo-200'} bg-white rounded-lg ${(isPickingColor || tool === 'fill') ? 'cursor-crosshair' : 'canvas-cursor'} ${!currentPrompt || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid) ? 'pointer-events-none opacity-30' : ''}`}
+                  className={`border-4 ${darkMode ? 'border-gray-600' : 'border-indigo-200'} bg-white rounded-lg ${(isPickingColor || tool === 'fill') ? 'cursor-crosshair' : 'canvas-cursor'} ${!currentPrompt || (multiplayer && Object.keys(room?.players || {})[currentDrawer] !== uid) ? 'pointer-events-none' : ''}`}
                   style={{ maxWidth: '100%', height: 'auto', backgroundColor: '#ffffff' }}
                   onMouseDown={startDrawing}
                   onMouseMove={(e) => {
