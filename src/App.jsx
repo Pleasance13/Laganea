@@ -44,7 +44,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       const [playerName, setPlayerName] = useState('');
       const [joinCode, setJoinCode] = useState('');
       const [isHost, setIsHost] = useState(false);
-      const [darkMode, setDarkMode] = useState(false);
+      const [darkMode, setDarkMode] = useState(true);
       const [players, setPlayers] = useState([]);
       const [playerEntries, setPlayerEntries] = useState([]);
       const [allowJoinInProgress, setAllowJoinInProgress] = useState(true);
@@ -68,12 +68,50 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       ];
 
       useEffect(() => {
-        initFirebase().catch((e) => setSyncStatus('✗ Firebase unavailable: ' + e.message));
+        let active = true;
+        (async () => {
+          try {
+            await initFirebase();
+            const { ref, get } = await import('firebase/database');
+            const uid = auth.currentUser?.uid;
+            if (!uid) return;
+            const snapshot = await get(ref(db, `userPreferences/${uid}`));
+            if (!active) return;
+            if (snapshot.exists()) {
+              const prefs = snapshot.val();
+              if (typeof prefs.playerName === 'string') setPlayerName(prefs.playerName);
+              if (typeof prefs.darkMode === 'boolean') setDarkMode(prefs.darkMode);
+              const settings = prefs.settings || {};
+              if (Number.isFinite(settings.maxRounds)) setMaxRounds(settings.maxRounds);
+              if (Number.isFinite(settings.drawingTime)) setDrawingTime(settings.drawingTime);
+              if (typeof settings.category === 'string') setCategory(settings.category);
+              if (typeof settings.hintsEnabled === 'boolean') setHintsEnabled(settings.hintsEnabled);
+              if (Number.isFinite(settings.hintFraction)) setHintFraction(settings.hintFraction);
+              if (typeof settings.allowJoinInProgress === 'boolean') setAllowJoinInProgress(settings.allowJoinInProgress);
+            }
+          } catch (e) {
+            setSyncStatus('⚠ Saved preferences unavailable; check Firebase database rules.');
+          }
+        })();
+        return () => { active = false; };
       }, []);
+
+      const saveUserPreference = async (key, value) => {
+        try {
+          await initFirebase();
+          const { ref, update } = await import('firebase/database');
+          const uid = auth.currentUser?.uid;
+          if (uid) await update(ref(db, `userPreferences/${uid}`), { [key]: value });
+        } catch (e) {
+          setSyncStatus('⚠ Preference not saved; check Firebase database rules.');
+        }
+      };
+      const saveUserSetting = (key, value) => saveUserPreference(`settings/${key}`, value);
 
       const createRoom = async () => {
         if (!playerName.trim()) return;
         try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
+        await saveUserPreference('playerName', playerName.trim());
         const code = generateRoomCode();
         setRoomCode(code);
         setIsHost(true);
@@ -105,7 +143,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       const joinRoom = async () => {
         if (!playerName.trim() || !joinCode.trim()) return;
         try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
-        try { await initFirebase(); } catch (e) { setSyncStatus('✗ Firebase unavailable: ' + e.message); return; }
+        await saveUserPreference('playerName', playerName.trim());
         const code = joinCode.toUpperCase();
         setRoomCode(code);
         setIsHost(false);
@@ -236,7 +274,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       // Login screen
       if (screen === 'login') {
         return (
-          <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8 flex items-center justify-center`}>
+          <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8 flex items-center justify-center`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed', backgroundSize: 'cover' }}>
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-12 w-full max-w-md`}>
               <div className="flex justify-between items-center mb-8">
                 <div className="flex-1 flex justify-center"><LaganeaLogo width={245} /></div>
@@ -296,7 +334,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       // Setup screen
       if (screen === 'lobby') {
         return (
-          <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`}>
+          <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed', backgroundSize: 'cover' }}>
             <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
               <div className="flex justify-between items-center mb-8">
                 <div>
