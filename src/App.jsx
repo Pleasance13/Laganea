@@ -337,16 +337,17 @@ import LaganeaLogo from './LaganeaLogo.jsx';
         return (
           <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed', backgroundSize: 'cover' }}>
             <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
-              <div className="relative flex items-start justify-between gap-3 mb-8">
-                <div className="flex flex-col items-start text-left pt-1">
+              <div className="flex justify-between items-center mb-8">
+                <div>
                   <LaganeaLogo width={210} />
-                  <div className={`mt-3 inline-flex items-center gap-3 rounded-xl px-4 py-2 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-indigo-50 text-gray-800'}`}>
-                    <span className="text-sm">Room code</span><span className="font-mono text-xl font-black tracking-widest">{roomCode}</span>
-                    <button onClick={() => { navigator.clipboard.writeText(roomCode); setSyncStatus('✓ Room code copied'); }} className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-white hover:bg-indigo-100'}`} title="Copy room code" aria-label="Copy room code">📋</button>
-                  </div>
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Room: <span className="font-mono font-bold">{roomCode}</span></p>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-2">
                   <button onClick={() => setShowLobbySettings(true)} className="px-3 py-2 rounded-lg bg-indigo-100 hover:bg-indigo-200" title="Game settings">⚙️</button>
+                  <button onClick={() => navigator.clipboard.writeText(roomCode)} 
+                    className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`} title="Copy room code">
+                    📋
+                  </button>
                   <button onClick={leaveRoom} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`} title="Leave room">
                     🚪
                   </button>
@@ -367,6 +368,31 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                   ))}
                 </div>
               </div>
+
+              {isHost && (
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Category</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {categories.map(cat => (
+                        <button key={cat.value} onClick={() => { setCategory(cat.value); saveRoomSetting('category', cat.value); }}
+                          className={`p-2 rounded-lg border-2 text-center transition-all ${category === cat.value ? 'border-indigo-500 bg-indigo-50' : `${darkMode ? 'border-gray-600 bg-gray-700' : 'border-gray-200'}`}`}>
+                          <div className="text-2xl">{cat.emoji}</div>
+                          <div className={`text-xs font-semibold ${darkMode && category !== cat.value ? 'text-gray-300' : 'text-gray-700'}`}>{cat.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Rounds: {maxRounds}</label>
+                    <input type="range" min="1" max="5" value={maxRounds} onChange={(e) => { const value = parseInt(e.target.value, 10); setMaxRounds(value); saveRoomSetting('maxRounds', value); }} className="w-full" />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Drawing Time: {drawingTime}s</label>
+                    <input type="range" min="30" max="120" step="15" value={drawingTime} onChange={(e) => { const value = parseInt(e.target.value, 10); setDrawingTime(value); saveRoomSetting('drawingTime', value); }} className="w-full" />
+                  </div>
+                </div>
+              )}
 
               {gameState === 'playing' && <button onClick={() => { setStayInLobby(false); setScreen('playing'); }} className="w-full mb-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">Return to game</button>}
               <button onClick={startGame} disabled={players.length < 2 || !isHost || gameState === 'playing'}
