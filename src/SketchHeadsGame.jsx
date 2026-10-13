@@ -305,10 +305,11 @@ function levenshtein(a, b) {
 // ─── Main Game Component ───────────────────────────────────────────────────────
 
 // Multiplayer drawing reliability and per-round tool reset fixes
-const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, onResumeGame, onDarkModeChange, forceLobby = false, initialDarkMode = true }) => {
+const SketchHeadsGame = ({ roomCode, playerName, isHost: initialIsHost, onLeave, onReturnToLobby, onResumeGame, onDarkModeChange, forceLobby = false, initialDarkMode = true }) => {
   const multiplayer = Boolean(roomCode);
   const [room, setRoom] = useState(null);
   const [uid, setUid] = useState(null);
+  const isHost = multiplayer && uid && room?.host ? room.host === uid : initialIsHost;
   const [database, setDatabase] = useState(null);
   const [roomCodeCopied, setRoomCodeCopied] = useState(false);
   const [allowJoinInProgress, setAllowJoinInProgress] = useState(true);
@@ -365,6 +366,9 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
 
   // Quit confirmation state
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const [showEndGameConfirm, setShowEndGameConfirm] = useState(false);
+  const [soloTimeLeft, setSoloTimeLeft] = useState(30);
+  const [soloDialogDismissed, setSoloDialogDismissed] = useState(false);
   const [quitDrawings, setQuitDrawings] = useState([]);
 
   const baseColors = [
@@ -1375,20 +1379,20 @@ Respond with ONLY the JSON array, nothing else.`
                 <input type="number" min="1" max="5" value={maxRounds}
                   disabled={multiplayer && !isHost} onChange={(e) => { const v=parseInt(e.target.value); setMaxRounds(v); saveMultiplayerSetting("maxRounds", v); }}
                   className={`w-full px-4 py-2 border-2 rounded-lg focus:border-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'border-gray-200 bg-white'}`} />
-                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'} ${multiplayer && !isHost ? 'opacity-40' : ''}`}>
                   {maxRounds * players.length} total drawings · ~{Math.floor(maxRounds * players.length * (drawingTime + 30) / 60)} min
                 </p>
               </div>
 
               {/* Drawing Time */}
               <div>
-                <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-                  Drawing Time <span className="font-bold text-indigo-500">{drawingTime}s</span>
+                <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'} ${multiplayer && !isHost ? 'opacity-40' : ''}`}>
+                  Drawing Time <span className={`font-bold ${multiplayer && !isHost ? 'text-gray-500' : 'text-indigo-500'}`}>{drawingTime}s</span>
                 </label>
                 <input type="range" min="30" max="120" step="15" value={drawingTime}
                   disabled={multiplayer && !isHost} onChange={(e) => { const v=parseInt(e.target.value); setDrawingTime(v); saveMultiplayerSetting("drawingTime", v); }}
                   className="w-full disabled:opacity-50 disabled:cursor-not-allowed" />
-                <div className={`flex justify-between text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <div className={`flex justify-between text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'} ${multiplayer && !isHost ? 'opacity-40' : ''}`}>
                   <span>30s</span><span>45s</span><span>1m</span><span>1:15</span><span>1:30</span><span>1:45</span><span>2m</span>
                 </div>
               </div>
@@ -1396,8 +1400,8 @@ Respond with ONLY the JSON array, nothing else.`
               {multiplayer && (
                 <div className={`flex items-center justify-between gap-4 py-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
                   <div>
-                    <p className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Allow joining in progress</p>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Let new players join after the game starts.</p>
+                    <p className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} ${!isHost ? 'opacity-40' : ''}`}>Allow joining in progress</p>
+                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} ${!isHost ? 'opacity-40' : ''}`}>Let new players join after the game starts.</p>
                   </div>
                   <button type="button" disabled={!isHost} role="switch" aria-checked={allowJoinInProgress}
                     onClick={() => { const next = !allowJoinInProgress; setAllowJoinInProgress(next); saveMultiplayerSetting('allowJoinInProgress', next); }}
@@ -1409,7 +1413,7 @@ Respond with ONLY the JSON array, nothing else.`
 
               {/* Hints */}
               <div>
-                <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Hints</label>
+                <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'} ${multiplayer && !isHost ? 'opacity-40' : ''}`}>Hints</label>
                 <div className="flex gap-2">
                   {[
                     { label: 'None', active: !hintsEnabled,                          onClick: () => setHintsEnabled(false) },
@@ -1427,7 +1431,7 @@ Respond with ONLY the JSON array, nothing else.`
                     </button>
                   ))}
                 </div>
-                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'} ${multiplayer && !isHost ? 'opacity-40' : ''}`}>
                   {hintsEnabled ? 'Reveals letters spaced evenly through the round, keeping at least one hidden.' : 'No letters revealed.'}
                 </p>
               </div>
