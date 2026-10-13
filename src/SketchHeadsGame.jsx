@@ -402,6 +402,23 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
     })();
     return()=>{active=false;if(unsubscribe)unsubscribe();};
   },[multiplayer,roomCode,isHost]);
+  useEffect(() => {
+    if (!database || !uid) return;
+    let active = true;
+    import('firebase/database').then(async ({ ref, get }) => {
+      try {
+        const snapshot = await get(ref(database, `userPreferences/${uid}/settings`));
+        if (!active || !snapshot.exists()) return;
+        const prefs = snapshot.val();
+        if (typeof prefs.saveWithTransparency === 'boolean') setSaveWithTransparency(prefs.saveWithTransparency);
+        if (typeof prefs.customPrompts === 'string') setCustomPrompts(prefs.customPrompts);
+        if (typeof prefs.useCustomPrompts === 'boolean') setUseCustomPrompts(prefs.useCustomPrompts);
+        if (prefs.customPromptPacks && !room?.customPromptPacks) setCustomPromptPacks(prefs.customPromptPacks);
+      } catch (error) { console.warn('Could not load saved game settings', error); }
+    });
+    return () => { active = false; };
+  }, [database, uid]);
+
   useEffect(()=>{if(!multiplayer||!room||!uid||room.gameState!=='playing'||room.prompt)return;const drawer=Object.keys(room.players||{})[room.turnIndex||0];if(drawer===uid&&!generatingPrompts&&!promptOptions.length)generatePrompts();},[multiplayer,room,uid,generatingPrompts,promptOptions.length]);
   useEffect(()=>{if(!multiplayer||!room||!canvasRef.current)return;const marker=`${room.round||1}:${room.turnIndex||0}`;if(roomTurnRef.current!==marker){const c=canvasRef.current,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);remoteImageRef.current=null;roomTurnRef.current=marker;setTool('pen');setBrushSize(3);setColor('#2D3748');setCustomColor('#2D3748');setIsPickingColor(false);setShowColorPicker(false);setIsDrawing(false);setSmoothPoints([]);}},[multiplayer,room?.round,room?.turnIndex]);
   useEffect(()=>{if(!multiplayer||!canvasRef.current)return;if(room?.drawingImage==null){if(remoteImageRef.current!==null){const c=canvasRef.current;c.getContext('2d').clearRect(0,0,c.width,c.height);remoteImageRef.current=null;}return;}if(Object.keys(room.players||{})[room.turnIndex||0]===uid||room.drawingImage===remoteImageRef.current)return;const imageData=room.drawingImage;remoteImageRef.current=imageData;const img=new Image();img.onload=()=>{if(remoteImageRef.current!==imageData)return;const c=canvasRef.current;if(!c)return;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);};img.src=imageData;},[multiplayer,room?.drawingImage,room?.turnIndex,uid]);
@@ -506,6 +523,9 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
       setCustomPromptPacks(parsed);
       setCustomPrompts(text);
       setUseCustomPrompts(true);
+      saveMultiplayerSetting('customPrompts', text);
+      saveMultiplayerSetting('customPromptPacks', parsed);
+      saveMultiplayerSetting('useCustomPrompts', true);
       if (multiplayer && database && isHost) {
         import('firebase/database').then(({ ref, update }) => update(ref(database, 'rooms/' + roomCode), { customPromptPacks: parsed, useCustomPrompts: true }));
       }
@@ -750,9 +770,14 @@ Respond with ONLY the JSON array, nothing else.`
   };
 
   const saveMultiplayerSetting = async (key, value) => {
-    if (!multiplayer || !isHost || !database) return;
-    const { ref, update } = await import('firebase/database');
-    await update(ref(database, 'rooms/' + roomCode), { [key]: value });
+    if (multiplayer && isHost && database) {
+      const { ref, update } = await import('firebase/database');
+      await update(ref(database, 'rooms/' + roomCode), { [key]: value });
+    }
+    if (database && uid) {
+      const { ref, update } = await import('firebase/database');
+      await update(ref(database, `userPreferences/${uid}/settings`), { [key]: value });
+    }
   };
 
   const startGame = async () => {
@@ -1389,7 +1414,7 @@ Respond with ONLY the JSON array, nothing else.`
                   <p className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Transparent drawings</p>
                   <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Save PNGs without white background</p>
                 </div>
-                <button onClick={() => setSaveWithTransparency(!saveWithTransparency)}
+                <button onClick={() => { const next = !saveWithTransparency; setSaveWithTransparency(next); saveMultiplayerSetting('saveWithTransparency', next); }}
                   className={`relative w-12 h-6 rounded-full transition-colors ${saveWithTransparency ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
                   <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${saveWithTransparency ? 'translate-x-6' : 'translate-x-0.5'}`} />
                 </button>
@@ -1402,7 +1427,7 @@ Respond with ONLY the JSON array, nothing else.`
                     <p className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Custom Prompt Pack</p>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Upload a .txt file with your own prompts</p>
                   </div>
-                  <button onClick={() => { const enabled = !useCustomPrompts; setUseCustomPrompts(enabled); if (multiplayer && database && isHost) import('firebase/database').then(({ ref, update }) => update(ref(database, 'rooms/' + roomCode), { useCustomPrompts: enabled })); }}
+                  <button onClick={() => { const enabled = !useCustomPrompts; setUseCustomPrompts(enabled); saveMultiplayerSetting('useCustomPrompts', enabled); }}
                     className={`relative w-12 h-6 rounded-full transition-colors ${useCustomPrompts ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${useCustomPrompts ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
