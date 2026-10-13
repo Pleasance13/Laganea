@@ -165,7 +165,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
           const scores = Object.fromEntries(playerIds.map(id => [id, 0]));
           await update(ref(db, `rooms/${roomCode}`), {
             gameState: 'playing', round: 1, turnIndex: 0, prompt: null,
-            deadline: Date.now() + 30000, scores, guesses: null, correctGuessers: null, drawingImage: null
+            deadline: Date.now() + 30000, scores, guesses: null, correctGuessers: null, drawingImage: null, drawingHistory: null, paused: false
           });
           setGameState('playing');
           setSyncStatus('✓ Game started');
@@ -322,8 +322,8 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                 <div className="flex flex-wrap gap-2">
                   {playerEntries.map((p) => (
                     <div key={p.id} className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${darkMode ? 'bg-gray-600 text-gray-100' : 'bg-indigo-200 text-indigo-900'}`}>
-                      <span>{p.name} {isHost && p.id === playerEntries[0]?.id && '👑'}</span>
-                      {isHost && p.id !== playerEntries[0]?.id && <button onClick={async () => { const { ref, update } = await import('firebase/database'); const patch = { [`players/${p.id}`]: null, [`scores/${p.id}`]: null }; await update(ref(db, `rooms/${roomCode}`), patch); }} className="text-red-600 hover:text-red-800 font-black leading-none" title={`Kick ${p.name}`} aria-label={`Kick ${p.name}`}>✕</button>}
+                      <span>{p.name} {isHost && p.id === auth.currentUser?.uid && '👑'}</span>
+                      {isHost && p.id !== auth.currentUser?.uid && <button onClick={async () => { const { ref, update } = await import('firebase/database'); const patch = { [`players/${p.id}`]: null, [`scores/${p.id}`]: null }; await update(ref(db, `rooms/${roomCode}`), patch); }} className="text-red-600 hover:text-red-800 font-black leading-none" title={`Kick ${p.name}`} aria-label={`Kick ${p.name}`}>✕</button>}
                     </div>
                   ))}
                 </div>
@@ -360,7 +360,8 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                 </div>
               )}
 
-              <button onClick={startGame} disabled={players.length < 2 || !isHost}
+              {gameState === 'playing' && <button onClick={() => { setStayInLobby(false); setScreen('playing'); }} className="w-full mb-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">Return to game</button>}
+              <button onClick={startGame} disabled={players.length < 2 || !isHost || gameState === 'playing'}
                 className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-bold hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
                 {isHost ? 'Start Game' : 'Waiting for host...'}
               </button>
