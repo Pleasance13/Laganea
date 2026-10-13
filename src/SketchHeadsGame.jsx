@@ -305,7 +305,7 @@ function levenshtein(a, b) {
 // ─── Main Game Component ───────────────────────────────────────────────────────
 
 // Multiplayer drawing reliability and per-round tool reset fixes
-const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, initialDarkMode = false }) => {
+const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, onDarkModeChange, initialDarkMode = true }) => {
   const multiplayer = Boolean(roomCode);
   const [room, setRoom] = useState(null);
   const [uid, setUid] = useState(null);
@@ -351,6 +351,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
   const [drawings, setDrawings] = useState([]);
   const [isPickingColor, setIsPickingColor] = useState(false);
   const [darkMode, setDarkMode] = useState(initialDarkMode);
+  useEffect(() => { onDarkModeChange?.(darkMode); }, [darkMode, onDarkModeChange]);
   const [lastDrawPoint, setLastDrawPoint] = useState(null);
   const [saveWithTransparency, setSaveWithTransparency] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
