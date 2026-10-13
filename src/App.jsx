@@ -278,7 +278,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
             <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-12 w-full max-w-md`}>
               <div className="flex justify-between items-center mb-8">
                 <div className="flex-1 flex justify-center"><LaganeaLogo width={245} /></div>
-                <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`}>
+                <button onClick={() => { const next = !darkMode; setDarkMode(next); saveUserPreference('darkMode', next); }} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`}>
                   {darkMode ? '☀️' : '🌙'}
                 </button>
               </div>
@@ -286,7 +286,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
               <div className="space-y-4 mb-6">
                 <div>
                   <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Your name</label>
-                  <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)}
+                  <input type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)} onBlur={() => saveUserPreference('playerName', playerName.trim())}
                     onKeyPress={(e) => e.key === 'Enter' && createRoom()}
                     placeholder="Enter your name"
                     className={`w-full px-4 py-2 border-2 rounded-lg focus:border-indigo-400 focus:outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'border-gray-200 bg-white'}`} />
@@ -336,17 +336,16 @@ import LaganeaLogo from './LaganeaLogo.jsx';
         return (
           <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed', backgroundSize: 'cover' }}>
             <div className={`max-w-2xl mx-auto ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-xl p-8`}>
-              <div className="flex justify-between items-center mb-8">
-                <div>
+              <div className="relative flex items-start justify-between gap-3 mb-8">
+                <div className="flex-1 flex flex-col items-center text-center pt-1">
                   <LaganeaLogo width={210} />
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Room: <span className="font-mono font-bold">{roomCode}</span></p>
+                  <div className={`mt-3 inline-flex items-center gap-3 rounded-xl px-4 py-2 ${darkMode ? 'bg-gray-700 text-gray-100' : 'bg-indigo-50 text-gray-800'}`}>
+                    <span className="text-sm">Room code</span><span className="font-mono text-xl font-black tracking-widest">{roomCode}</span>
+                    <button onClick={() => { navigator.clipboard.writeText(roomCode); setSyncStatus('✓ Room code copied'); }} className={`px-2 py-1 rounded ${darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-white hover:bg-indigo-100'}`} title="Copy room code" aria-label="Copy room code">📋</button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                   <button onClick={() => setShowLobbySettings(true)} className="px-3 py-2 rounded-lg bg-indigo-100 hover:bg-indigo-200" title="Game settings">⚙️</button>
-                  <button onClick={() => navigator.clipboard.writeText(roomCode)} 
-                    className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`} title="Copy room code">
-                    📋
-                  </button>
                   <button onClick={leaveRoom} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`} title="Leave room">
                     🚪
                   </button>
@@ -368,37 +367,6 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                 </div>
               </div>
 
-              {isHost && (
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Category</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {categories.map(cat => (
-                        <button key={cat.value} onClick={() => { setCategory(cat.value); saveRoomSetting('category', cat.value); }}
-                          className={`p-2 rounded-lg border-2 text-center transition-all ${category === cat.value ? 'border-indigo-500 bg-indigo-50' : `${darkMode ? 'border-gray-600 bg-gray-700' : 'border-gray-200'}`}`}>
-                          <div className="text-2xl">{cat.emoji}</div>
-                          <div className={`text-xs font-semibold ${darkMode && category !== cat.value ? 'text-gray-300' : 'text-gray-700'}`}>{cat.label}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Rounds: {maxRounds}</label>
-                    <input type="range" min="1" max="5" value={maxRounds} onChange={(e) => { const value = parseInt(e.target.value, 10); setMaxRounds(value); saveRoomSetting('maxRounds', value); }} className="w-full" />
-                  </div>
-
-                  <div className={`flex items-center justify-between gap-4 rounded-lg p-3 ${darkMode ? 'bg-gray-700' : 'bg-indigo-50'}`}>
-                    <div><div className="font-semibold">Allow joining in progress</div><div className="text-xs opacity-70">New players can enter after a game starts.</div></div>
-                    <button onClick={() => { const next = !allowJoinInProgress; setAllowJoinInProgress(next); saveRoomSetting('allowJoinInProgress', next); }} role="switch" aria-checked={allowJoinInProgress} className={`w-12 h-7 rounded-full p-1 transition-colors ${allowJoinInProgress ? 'bg-indigo-500' : 'bg-gray-400'}`}><span className={`block w-5 h-5 rounded-full bg-white transition-transform ${allowJoinInProgress ? 'translate-x-5' : ''}`} /></button>
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Drawing Time: {drawingTime}s</label>
-                    <input type="range" min="30" max="120" step="15" value={drawingTime} onChange={(e) => { const value = parseInt(e.target.value, 10); setDrawingTime(value); saveRoomSetting('drawingTime', value); }} className="w-full" />
-                  </div>
-                </div>
-              )}
-
               {gameState === 'playing' && <button onClick={() => { setStayInLobby(false); setScreen('playing'); }} className="w-full mb-3 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold">Return to game</button>}
               <button onClick={startGame} disabled={players.length < 2 || !isHost || gameState === 'playing'}
                 className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-bold hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
@@ -416,9 +384,11 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                   <div className={`w-full max-w-md rounded-2xl shadow-2xl ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-between items-center p-6 border-b"><h2 className="text-2xl font-bold">Game Settings</h2><button onClick={() => setShowLobbySettings(false)}>✕</button></div>
                     <div className="p-6 space-y-6">
-                      <div><label className="block font-semibold mb-2">Rounds: {maxRounds}</label><input type="range" min="1" max="5" value={maxRounds} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setMaxRounds(v); saveRoomSetting('maxRounds',v); }} className="w-full" /></div>
-                      <div><label className="block font-semibold mb-2">Drawing time: {drawingTime}s</label><input type="range" min="30" max="120" step="15" value={drawingTime} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setDrawingTime(v); saveRoomSetting('drawingTime',v); }} className="w-full" /></div>
-                      <div><label className="block font-semibold mb-2">Hints</label><div className="flex gap-2">{[{label:'None',value:0},{label:'Few',value:0.25},{label:'Some',value:0.5},{label:'Lots',value:0.75}].map(opt => <button key={opt.label} disabled={!isHost} onClick={() => { const enabled=opt.value>0; setHintsEnabled(enabled); setHintFraction(opt.value||0.5); saveRoomSetting('hintsEnabled',enabled); saveRoomSetting('hintFraction',opt.value||0.5); }} className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold ${(opt.value===0?!hintsEnabled:(hintsEnabled&&hintFraction===opt.value))?'bg-indigo-500 border-indigo-500 text-white':(darkMode?'border-gray-600':'border-gray-200')}`}>{opt.label}</button>)}</div></div>
+                      <div><label className="block font-semibold mb-2">Category</label><div className="grid grid-cols-3 gap-2">{categories.map(cat => <button key={cat.value} disabled={!isHost} onClick={() => { setCategory(cat.value); saveRoomSetting('category',cat.value); saveUserSetting('category',cat.value); }} className={`p-2 rounded-lg border-2 text-center ${category===cat.value?'border-indigo-500 bg-indigo-500/20':(darkMode?'border-gray-600':'border-gray-200')}`}><div className="text-xl">{cat.emoji}</div><div className="text-xs font-semibold">{cat.label}</div></button>)}</div></div>
+                      <div><label className="block font-semibold mb-2">Rounds: {maxRounds}</label><input type="range" min="1" max="5" value={maxRounds} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setMaxRounds(v); saveRoomSetting('maxRounds',v); saveUserSetting('maxRounds',v); }} className="w-full" /></div>
+                      <div><label className="block font-semibold mb-2">Drawing time: {drawingTime}s</label><input type="range" min="30" max="120" step="15" value={drawingTime} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setDrawingTime(v); saveRoomSetting('drawingTime',v); saveUserSetting('drawingTime',v); }} className="w-full" /></div>
+                      <div className={`flex items-center justify-between gap-4 rounded-lg p-3 ${darkMode?'bg-gray-700':'bg-indigo-50'}`}><div><div className="font-semibold">Allow joining in progress</div><div className="text-xs opacity-70">Let new players join after the game starts.</div></div><button disabled={!isHost} onClick={() => { const v=!allowJoinInProgress; setAllowJoinInProgress(v); saveRoomSetting('allowJoinInProgress',v); saveUserSetting('allowJoinInProgress',v); }} role="switch" aria-checked={allowJoinInProgress} className={`w-12 h-7 rounded-full p-1 ${allowJoinInProgress?'bg-indigo-500':'bg-gray-400'} disabled:opacity-50`}><span className={`block w-5 h-5 rounded-full bg-white transition-transform ${allowJoinInProgress?'translate-x-5':''}`} /></button></div>
+                      <div><label className="block font-semibold mb-2">Hints</label><div className="flex gap-2">{[{label:'None',value:0},{label:'Few',value:0.25},{label:'Some',value:0.5},{label:'Lots',value:0.75}].map(opt => <button key={opt.label} disabled={!isHost} onClick={() => { const enabled=opt.value>0; setHintsEnabled(enabled); setHintFraction(opt.value||0.5); saveRoomSetting('hintsEnabled',enabled); saveRoomSetting('hintFraction',opt.value||0.5); saveUserSetting('hintsEnabled',enabled); saveUserSetting('hintFraction',opt.value||0.5); }} className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold ${(opt.value===0?!hintsEnabled:(hintsEnabled&&hintFraction===opt.value))?'bg-indigo-500 border-indigo-500 text-white':(darkMode?'border-gray-600':'border-gray-200')}`}>{opt.label}</button>)}</div></div>
                       <p className="text-xs opacity-70">{isHost?'Changes are shared with everyone in the room.':'Only the host can change game settings.'}</p>
                       <button onClick={() => setShowLobbySettings(false)} className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold">Done</button>
                     </div>
