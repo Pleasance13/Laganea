@@ -305,7 +305,7 @@ function levenshtein(a, b) {
 // ─── Main Game Component ───────────────────────────────────────────────────────
 
 // Multiplayer drawing reliability and per-round tool reset fixes
-const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, onDarkModeChange, initialDarkMode = true }) => {
+const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobby, onDarkModeChange, forceLobby = false, initialDarkMode = true }) => {
   const multiplayer = Boolean(roomCode);
   const [room, setRoom] = useState(null);
   const [uid, setUid] = useState(null);
@@ -393,7 +393,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
         unsubscribe=onValue(ref(db,`rooms/${roomCode}`),snap=>{
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
           setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);setAllowJoinInProgress(data.allowJoinInProgress!==false);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
-          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState('playing');else if(data.gameState==='setup'){setGameState('setup');onReturnToLobby?.(false);}setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
+          if(data.gameState==='finished')setGameState('gameEnd');else if(data.gameState==='playing')setGameState(forceLobby?'setup':'playing');else if(data.gameState==='setup')setGameState('setup');setIsPaused(Boolean(data.paused));if(Array.isArray(data.drawingHistory))setDrawings(data.drawingHistory);
           if(data.prompt){setCurrentPrompt(data.prompt);if(data.deadline)setTimeLeft(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           else if(data.gameState==='playing'){setCurrentPrompt(null);setPromptOptions([]);if(data.deadline)setPromptSelectionTime(Math.max(0,Math.ceil((data.deadline-Date.now())/1000)));}
           setGuesses(Object.values(data.guesses||{}));setCorrectGuessers(Object.values(data.correctGuessers||{}));
@@ -402,7 +402,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost, onLeave, onReturnToLobb
       }catch(e){console.error('Multiplayer connection failed:',e);}
     })();
     return()=>{active=false;if(unsubscribe)unsubscribe();};
-  },[multiplayer,roomCode,isHost]);
+  },[multiplayer,roomCode,isHost,forceLobby]);
   useEffect(() => {
     if (!database || !uid) return;
     let active = true;
@@ -1238,7 +1238,7 @@ Respond with ONLY the JSON array, nothing else.`
 
   // ─── Setup Screen ────────────────────────────────────────────────────────────
 
-  if (gameState === 'setup') {
+  if (gameState === 'setup' || forceLobby) {
     return (
       <>
       <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100'} p-8`} style={{ minHeight: '100dvh', backgroundAttachment: 'fixed', backgroundSize: 'cover', backgroundRepeat: 'no-repeat' }}>
@@ -1250,6 +1250,7 @@ Respond with ONLY the JSON array, nothing else.`
                 title="Settings">
                 <Settings size={20} />
               </button>
+              {multiplayer && <button onClick={() => onLeave?.()} className={`px-3 py-2 rounded-lg text-sm font-semibold ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'} transition-colors`} title="Leave lobby">Leave lobby</button>}
               <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`} title="Toggle dark mode">
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
@@ -1298,7 +1299,7 @@ Respond with ONLY the JSON array, nothing else.`
               
               {categories.map(cat => (
                 <button key={cat.value} disabled={multiplayer && !isHost} onClick={() => { setCategory(cat.value); saveMultiplayerSetting("category", cat.value); }}
-                  className={`p-4 rounded-lg border-2 transition-all ${category === cat.value ? 'border-indigo-500 bg-indigo-50 shadow-md' : `${darkMode ? 'border-gray-600 bg-gray-700 hover:border-indigo-400' : 'border-gray-200 bg-white hover:border-indigo-300'}`}`}>
+                  className={`p-4 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${category === cat.value ? 'border-indigo-500 bg-indigo-50 shadow-md' : `${darkMode ? 'border-gray-600 bg-gray-700 hover:border-indigo-400' : 'border-gray-200 bg-white hover:border-indigo-300'}`}`}>
                   <div className={`text-3xl mb-1 ${category === cat.value ? 'icon-wobble' : ''}`}>{cat.emoji}</div>
                   <div className={`font-semibold ${darkMode && category !== cat.value ? 'text-gray-200' : 'text-gray-700'}`}>{cat.label}</div>
                 </button>
@@ -1336,7 +1337,7 @@ Respond with ONLY the JSON array, nothing else.`
                 const playerId = Object.keys(room?.players || {})[i];
                 return (
                   <div key={playerId || i} className={`${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-100 to-purple-100'} px-4 py-2 rounded-full flex items-center gap-2`}>
-                    <span className={`font-medium ${darkMode ? 'text-gray-200' : ''}`}>{p}</span>
+                    <span className={`font-medium ${darkMode ? 'text-gray-200' : ''}`}>{p}{multiplayer && playerId === room?.host ? ' 👑' : ''}</span>
                     {!multiplayer && <button onClick={() => setPlayers(players.filter((_, idx) => idx !== i))} className="text-red-500 font-bold hover:text-red-700">×</button>}
                     {multiplayer && isHost && playerId && playerId !== uid && <button onClick={async () => { if (!database) return; const { ref, update } = await import('firebase/database'); await update(ref(database, `rooms/${roomCode}`), { [`players/${playerId}`]: null, [`scores/${playerId}`]: null }); }} className="text-red-500 font-bold hover:text-red-700" title={`Kick ${p}`} aria-label={`Kick ${p}`}>×</button>}
                   </div>
@@ -1369,7 +1370,7 @@ Respond with ONLY the JSON array, nothing else.`
                 <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Rounds</label>
                 <input type="number" min="1" max="5" value={maxRounds}
                   disabled={multiplayer && !isHost} onChange={(e) => { const v=parseInt(e.target.value); setMaxRounds(v); saveMultiplayerSetting("maxRounds", v); }}
-                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-indigo-400 focus:outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'border-gray-200 bg-white'}`} />
+                  className={`w-full px-4 py-2 border-2 rounded-lg focus:border-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'border-gray-200 bg-white'}`} />
                 <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   {maxRounds * players.length} total drawings · ~{Math.floor(maxRounds * players.length * (drawingTime + 30) / 60)} min
                 </p>
@@ -1382,7 +1383,7 @@ Respond with ONLY the JSON array, nothing else.`
                 </label>
                 <input type="range" min="30" max="120" step="15" value={drawingTime}
                   disabled={multiplayer && !isHost} onChange={(e) => { const v=parseInt(e.target.value); setDrawingTime(v); saveMultiplayerSetting("drawingTime", v); }}
-                  className="w-full" />
+                  className="w-full disabled:opacity-50 disabled:cursor-not-allowed" />
                 <div className={`flex justify-between text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   <span>30s</span><span>45s</span><span>1m</span><span>1:15</span><span>1:30</span><span>1:45</span><span>2m</span>
                 </div>
@@ -1396,7 +1397,7 @@ Respond with ONLY the JSON array, nothing else.`
                   </div>
                   <button type="button" disabled={!isHost} role="switch" aria-checked={allowJoinInProgress}
                     onClick={() => { const next = !allowJoinInProgress; setAllowJoinInProgress(next); saveMultiplayerSetting('allowJoinInProgress', next); }}
-                    className={`relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 ${allowJoinInProgress ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
+                    className={`relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${allowJoinInProgress ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${allowJoinInProgress ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
@@ -1413,7 +1414,7 @@ Respond with ONLY the JSON array, nothing else.`
                     { label: 'Lots', active: hintsEnabled && hintFraction === 0.75,  onClick: () => { setHintsEnabled(true); setHintFraction(0.75); } },
                   ].map(({ label, active, onClick }) => (
                     <button key={label} disabled={multiplayer && !isHost} onClick={() => { onClick(); saveMultiplayerSetting("hintsEnabled", label !== "None"); saveMultiplayerSetting("hintFraction", label === "Few" ? 0.25 : label === "Lots" ? 0.75 : 0.5); }}
-                      className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-all ${
+                      className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         active
                           ? 'bg-indigo-500 border-indigo-500 text-white'
                           : `${darkMode ? 'border-gray-600 text-gray-300 hover:border-indigo-400' : 'border-gray-200 text-gray-600 hover:border-indigo-300'}`
@@ -1447,7 +1448,7 @@ Respond with ONLY the JSON array, nothing else.`
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Upload a .txt file with your own prompts</p>
                   </div>
                   <button onClick={() => { const enabled = !useCustomPrompts; setUseCustomPrompts(enabled); saveMultiplayerSetting('useCustomPrompts', enabled); }}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${useCustomPrompts ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
+                    className={`relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${useCustomPrompts ? 'bg-indigo-500' : darkMode ? 'bg-gray-600' : 'bg-gray-300'}`}>
                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${useCustomPrompts ? 'translate-x-6' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
