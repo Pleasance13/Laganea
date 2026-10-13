@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import SketchHeadsGame from './SketchHeadsGame.jsx';
 import LaganeaLogo from './LaganeaLogo.jsx';
+import { Sun, Moon } from 'lucide-react';
 
     // Firebase config
     const firebaseConfig = {
@@ -171,6 +172,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
           await update(ref(db, `rooms/${code}/players`), {
             [playerId]: { name: playerName.trim(), joinedAt: Date.now() }
           });
+          await update(ref(db, `rooms/${code}`), { soloDeadline: null });
 
           // Get current players
           const playersSnapshot = await get(ref(db, `rooms/${code}/players`));
@@ -225,13 +227,37 @@ import LaganeaLogo from './LaganeaLogo.jsx';
         setScreen('playing');
       };
 
-      const leaveRoom = () => {
+      const leaveRoom = async () => {
+        const leavingCode = roomCode;
+        try {
+          await initFirebase();
+          const { ref, runTransaction } = await import('firebase/database');
+          const uid = auth.currentUser?.uid;
+          if (leavingCode && uid) {
+            await runTransaction(ref(db, `rooms/${leavingCode}`), current => {
+              if (!current || !current.players?.[uid]) return current;
+              const next = { ...current, players: { ...current.players } };
+              delete next.players[uid];
+              if (current.host === uid) {
+                const nextHost = Object.keys(next.players)[0];
+                if (nextHost) next.host = nextHost;
+                else return null;
+              }
+              if (next.scores) { next.scores = { ...next.scores }; delete next.scores[uid]; }
+              next.soloDeadline = Object.keys(next.players).length === 1 && next.gameState === 'playing' ? Date.now() + 30000 : null;
+              return next;
+            });
+          }
+        } catch (error) {
+          console.warn('Could not cleanly leave room', error);
+        }
         setStayInLobby(false);
         setForceLobby(false);
         setScreen('login');
         setRoomCode('');
         setJoinCode('');
         setPlayers([]);
+        setPlayerEntries([]);
         setIsHost(false);
         setGameState('setup');
         setSyncStatus('');
@@ -259,6 +285,8 @@ import LaganeaLogo from './LaganeaLogo.jsx';
             setHintsEnabled(data.hintsEnabled !== false);
             setHintFraction(Number(data.hintFraction) || 0.5);
             setGameState(data.gameState || 'setup');
+            const currentUid = auth.currentUser?.uid;
+            if (currentUid) setIsHost(data.host === currentUid);
             if (data.gameState === 'playing' && !stayInLobby) setScreen('playing');
             else if (data.gameState === 'setup') setScreen('lobby');
             const playerId = auth.currentUser?.uid;
@@ -288,7 +316,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
               <div className="flex justify-between items-center mb-8">
                 <div className="flex-1 flex justify-center"><LaganeaLogo width={245} /></div>
                 <button onClick={() => { const next = !darkMode; setDarkMode(next); saveUserPreference('darkMode', next); }} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`}>
-                  {darkMode ? '☀️' : '🌙'}
+                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
               </div>
 
