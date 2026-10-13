@@ -349,7 +349,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                   <button onClick={leaveRoom} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} transition-colors`} title="Leave room">
                     🚪
                   </button>
-                  <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`}>
+                  <button onClick={() => { const next = !darkMode; setDarkMode(next); saveUserPreference('darkMode', next); }} className={`px-3 py-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'} transition-colors`}>
                     {darkMode ? '☀️' : '🌙'}
                   </button>
                 </div>
