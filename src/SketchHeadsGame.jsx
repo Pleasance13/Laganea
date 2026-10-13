@@ -401,7 +401,7 @@ const SketchHeadsGame = ({ roomCode, playerName, isHost: initialIsHost, onLeave,
           if(!snap.exists())return;const data=snap.val();setRoom(data);const entries=Object.entries(data.players||{});
           if(data.host && !data.players?.[data.host] && entries.length){const candidate=entries[0][0];runTransaction(ref(db,`rooms/${roomCode}/host`),current=>current && data.players?.[current] ? current : candidate).catch(err=>console.warn('Host handoff failed',err));}
           if(data.gameState==='playing' && entries.length<=1 && !data.soloDeadline){update(ref(db,`rooms/${roomCode}`),{soloDeadline:Date.now()+30000}).catch(()=>{});}
-          if(entries.length>1 && data.soloDeadline){update(ref(db,`rooms/${roomCode}`),{soloDeadline:null}).catch(()=>{});}
+          if(entries.length>1 && data.soloDeadline){setSoloDialogDismissed(false);update(ref(db,`rooms/${roomCode}`),{soloDeadline:null}).catch(()=>{});}
           setPlayers(entries.map(([,p])=>typeof p==='string'?p:p.name||'Player'));setCategory(data.category||'general');setMaxRounds(Number(data.maxRounds)||3);setDrawingTime(Number(data.drawingTime)||90);setHintsEnabled(data.hintsEnabled!==false);setHintFraction(Number(data.hintFraction)||0.5);setAllowJoinInProgress(data.allowJoinInProgress!==false);if(data.customPromptPacks){setCustomPromptPacks(data.customPromptPacks);setUseCustomPrompts(data.useCustomPrompts!==false);}else if(multiplayer&&!isHost){setCustomPromptPacks({});setUseCustomPrompts(false);}setCurrentDrawer(Math.max(0,Number(data.turnIndex)||0));if(data.round)setRound(data.round);
           const previousRoomGameState = lastRoomGameStateRef.current;
           lastRoomGameStateRef.current = data.gameState || 'setup';
@@ -1315,7 +1315,7 @@ Respond with ONLY the JSON array, nothing else.`
             </div>
           )}
           <div className="mb-6">
-            <label className={`block text-lg font-semibold mb-3 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Select Category</label>
+            <label className={`block text-lg font-semibold mb-3 ${darkMode ? 'text-gray-200' : 'text-gray-700'} ${multiplayer && !isHost ? 'opacity-40' : ''}`}>Select Category</label>
             <div className="grid grid-cols-2 gap-3">
               <style>{`
                 @keyframes iconWobble {
@@ -1395,7 +1395,7 @@ Respond with ONLY the JSON array, nothing else.`
 
               {/* Rounds */}
               <div>
-                <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>Rounds</label>
+                <label className={`block text-base font-semibold mb-2 ${darkMode ? 'text-gray-200' : 'text-gray-700'} ${multiplayer && !isHost ? 'opacity-40' : ''}`}>Rounds</label>
                 <input type="number" min="1" max="5" value={maxRounds}
                   disabled={multiplayer && !isHost} onChange={(e) => { const v=parseInt(e.target.value); setMaxRounds(v); saveMultiplayerSetting("maxRounds", v); }}
                   className={`w-full px-4 py-2 border-2 rounded-lg focus:border-indigo-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-200' : 'border-gray-200 bg-white'}`} />
