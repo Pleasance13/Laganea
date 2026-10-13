@@ -282,6 +282,20 @@ import LaganeaLogo from './LaganeaLogo.jsx';
                 </div>
               )}
             </div>
+            {showLobbySettings && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowLobbySettings(false)}>
+                  <div className={`w-full max-w-md rounded-2xl shadow-2xl ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-between items-center p-6 border-b"><h2 className="text-2xl font-bold">Game Settings</h2><button onClick={() => setShowLobbySettings(false)}>✕</button></div>
+                    <div className="p-6 space-y-6">
+                      <div><label className="block font-semibold mb-2">Rounds: {maxRounds}</label><input type="range" min="1" max="5" value={maxRounds} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setMaxRounds(v); saveRoomSetting('maxRounds',v); }} className="w-full" /></div>
+                      <div><label className="block font-semibold mb-2">Drawing time: {drawingTime}s</label><input type="range" min="30" max="120" step="15" value={drawingTime} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setDrawingTime(v); saveRoomSetting('drawingTime',v); }} className="w-full" /></div>
+                      <div><label className="block font-semibold mb-2">Hints</label><div className="flex gap-2">{[{label:'None',value:0},{label:'Few',value:0.25},{label:'Some',value:0.5},{label:'Lots',value:0.75}].map(opt => <button key={opt.label} disabled={!isHost} onClick={() => { const enabled=opt.value>0; setHintsEnabled(enabled); setHintFraction(opt.value||0.5); saveRoomSetting('hintsEnabled',enabled); saveRoomSetting('hintFraction',opt.value||0.5); }} className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold ${(opt.value===0?!hintsEnabled:(hintsEnabled&&hintFraction===opt.value))?'bg-indigo-500 border-indigo-500 text-white':(darkMode?'border-gray-600':'border-gray-200')}`}>{opt.label}</button>)}</div></div>
+                      <p className="text-xs opacity-70">{isHost?'Changes are shared with everyone in the room.':'Only the host can change game settings.'}</p>
+                      <button onClick={() => setShowLobbySettings(false)} className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold">Done</button>
+                    </div>
+                  </div>
+                </div>
+              )}
           </div>
         );
       }
@@ -377,20 +391,7 @@ import LaganeaLogo from './LaganeaLogo.jsx';
       }
 
 
-              {showLobbySettings && (
-                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowLobbySettings(false)}>
-                  <div className={`w-full max-w-md rounded-2xl shadow-2xl ${darkMode ? 'bg-gray-800 text-gray-100' : 'bg-white text-gray-800'}`} onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-between items-center p-6 border-b"><h2 className="text-2xl font-bold">Game Settings</h2><button onClick={() => setShowLobbySettings(false)}>✕</button></div>
-                    <div className="p-6 space-y-6">
-                      <div><label className="block font-semibold mb-2">Rounds: {maxRounds}</label><input type="range" min="1" max="5" value={maxRounds} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setMaxRounds(v); saveRoomSetting('maxRounds',v); }} className="w-full" /></div>
-                      <div><label className="block font-semibold mb-2">Drawing time: {drawingTime}s</label><input type="range" min="30" max="120" step="15" value={drawingTime} disabled={!isHost} onChange={(e) => { const v=Number(e.target.value); setDrawingTime(v); saveRoomSetting('drawingTime',v); }} className="w-full" /></div>
-                      <div><label className="block font-semibold mb-2">Hints</label><div className="flex gap-2">{[{label:'None',value:0},{label:'Few',value:0.25},{label:'Some',value:0.5},{label:'Lots',value:0.75}].map(opt => <button key={opt.label} disabled={!isHost} onClick={() => { const enabled=opt.value>0; setHintsEnabled(enabled); setHintFraction(opt.value||0.5); saveRoomSetting('hintsEnabled',enabled); saveRoomSetting('hintFraction',opt.value||0.5); }} className={`flex-1 py-2 rounded-lg border-2 text-sm font-semibold ${(opt.value===0?!hintsEnabled:(hintsEnabled&&hintFraction===opt.value))?'bg-indigo-500 border-indigo-500 text-white':(darkMode?'border-gray-600':'border-gray-200')}`}>{opt.label}</button>)}</div></div>
-                      <p className="text-xs opacity-70">{isHost?'Changes are shared with everyone in the room.':'Only the host can change game settings.'}</p>
-                      <button onClick={() => setShowLobbySettings(false)} className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold">Done</button>
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
       // Playing screen (placeholder)
       if (screen === 'playing') {
