@@ -786,12 +786,13 @@ Respond with ONLY the JSON array, nothing else.`
 
   const startGame = async () => {
     if (multiplayer) {
-      if (!isHost || !database || players.length < 2) onResumeGame?.(); return;
+      if (!isHost || !database || players.length < 2) return;
       const ids = Object.keys(room?.players || {});
       const scoresById = Object.fromEntries(ids.map(id => [id, 0]));
       const { ref, update } = await import("firebase/database");
       await update(ref(database, "rooms/" + roomCode), { gameState: "playing", round: 1, turnIndex: 0, prompt: null, deadline: Date.now() + 30000, scores: scoresById, guesses: null, correctGuessers: null, drawingImage: null, drawingHistory: null, category, maxRounds, drawingTime, hintsEnabled, hintFraction });
       setDrawings([]); setUsedPrompts(new Set()); setCurrentPrompt(null); setPromptOptions([]); setGuesses([]); setCorrectGuessers([]); endRoundKeyRef.current = null;
+       onResumeGame?.();
       return;
     }
     if (players.length < 2) { alert('Need at least 2 players!'); return; }
